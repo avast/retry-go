@@ -11,7 +11,21 @@ Simple library for retry mechanism
 
 slightly inspired by [Try::Tiny::Retry](https://metacpan.org/pod/Try::Tiny::Retry)
 
-## EXAMPLE
+## INSTALL && USE
+
+To get the package, execute:
+
+```
+go get gopkg.in/avast/retry-go.v0
+```
+
+To import this package, add the following line to your code:
+
+```go
+import "gopkg.in/avast/retry-go.v0"
+```
+
+### EXAMPLE
 
 http get with retry:
 
