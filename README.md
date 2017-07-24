@@ -1,7 +1,7 @@
 # retry
 
-[![Build Status](https://travis-ci.org/avast/retry-go.svg)](https://travis-ci.org/avast/retry-go)
-[![Build status](https://ci.appveyor.com/api/projects/status/urj0cf370sr5hjw4?svg=true)](https://ci.appveyor.com/project/avast/retry-go)
+[![Linux Build Status](https://travis-ci.org/avast/retry-go.svg)](https://travis-ci.org/avast/retry-go)
+[![Windows Build status](https://ci.appveyor.com/api/projects/status/fieg9gon3qlq0a9a?svg=true)](https://ci.appveyor.com/project/JaSei/retry-go)
 [![Go Report Card](https://goreportcard.com/badge/github.com/avast/retry-go)](https://goreportcard.com/report/github.com/avast/retry-go)
 [![GoDoc](https://godoc.org/github.com/avast/retry-go?status.svg)](http://godoc.org/github.com/jasei/retry-go)
 [![Sourcegraph](https://sourcegraph.com/github.com/jasei/retry-go/-/badge.svg)](https://sourcegraph.com/github.com/jasei/retry-go?badge)

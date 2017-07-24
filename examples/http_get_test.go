@@ -1,7 +1,6 @@
 package retry_test
 
 import (
-	"fmt"
 	"github.com/avast/retry-go"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
