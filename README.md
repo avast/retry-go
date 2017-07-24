@@ -3,9 +3,9 @@
 [![Linux Build Status](https://travis-ci.org/avast/retry-go.svg)](https://travis-ci.org/avast/retry-go)
 [![Windows Build status](https://ci.appveyor.com/api/projects/status/fieg9gon3qlq0a9a?svg=true)](https://ci.appveyor.com/project/JaSei/retry-go)
 [![Go Report Card](https://goreportcard.com/badge/github.com/avast/retry-go)](https://goreportcard.com/report/github.com/avast/retry-go)
-[![GoDoc](https://godoc.org/github.com/avast/retry-go?status.svg)](http://godoc.org/github.com/jasei/retry-go)
-[![Sourcegraph](https://sourcegraph.com/github.com/jasei/retry-go/-/badge.svg)](https://sourcegraph.com/github.com/jasei/retry-go?badge)
-[![codecov.io](https://codecov.io/github/boennemann/badges/coverage.svg?branch=master)](https://codecov.io/github/jasei/retry-go?branch=master)
+[![GoDoc](https://godoc.org/github.com/avast/retry-go?status.svg)](http://godoc.org/github.com/avast/retry-go)
+[![Sourcegraph](https://sourcegraph.com/github.com/avast/retry-go/-/badge.svg)](https://sourcegraph.com/github.com/avast/retry-go?badge)
+[![codecov.io](https://codecov.io/github/boennemann/badges/coverage.svg?branch=master)](https://codecov.io/github/avast/retry-go?branch=master)
 
 Simple library for retry mechanism
 
