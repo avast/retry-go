@@ -3,16 +3,16 @@
 package retry
 
 import (
-	"errors"
 	"fmt"
 	"time"
 )
 
+// Function signature of retryable function
 type Retryable func() error
-type OnRetry func(n uint, err error)
 
-var defaultTries uint = 10
-var defaultDelay time.Duration = 1e5
+// Function signature of OnRetry function
+// n = count of tries
+type OnRetry func(n uint, err error)
 
 // Retry - simple retry
 //
@@ -47,7 +47,7 @@ func RetryWithOpts(retryableFunction Retryable, opts RetryOpts) error {
 // is possible set OnRetry function callback
 // which are called each retry
 func RetryCustom(retryableFunction Retryable, onRetryFunction OnRetry, opts RetryOpts) error {
-	var n uint = 0
+	var n uint
 
 	for n < opts.tries {
 		err := retryableFunction()
@@ -64,5 +64,5 @@ func RetryCustom(retryableFunction Retryable, onRetryFunction OnRetry, opts Retr
 		n++
 	}
 
-	return errors.New(fmt.Sprintf("All (%d) retries fail", opts.tries))
+	return fmt.Errorf("All (%d) retries fail", opts.tries)
 }

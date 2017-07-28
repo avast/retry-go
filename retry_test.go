@@ -8,7 +8,7 @@ import (
 )
 
 func TestCustom(t *testing.T) {
-	var retrySum uint = 0
+	var retrySum uint
 	err := RetryCustom(
 		func() error { return errors.New("test") },
 		func(n uint, err error) { retrySum += n },
