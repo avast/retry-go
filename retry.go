@@ -50,14 +50,14 @@ func RetryWithOpts(retryableFunction Retryable, opts RetryOpts) error {
 func RetryCustom(retryableFunction Retryable, onRetryFunction OnRetry, opts RetryOpts) error {
 	var n uint
 
-	errorLog := make(errorLog, 0, opts.tries)
+	errorLog := make(errorLog, opts.tries)
 
 	for n < opts.tries {
 		err := retryableFunction()
 
 		if err != nil {
 			onRetryFunction(n, err)
-			errorLog = append(errorLog, err)
+			errorLog[n] = err
 
 			delayTime := opts.delay * (1 << (n - 1))
 			time.Sleep((time.Duration)(delayTime) * opts.units)
