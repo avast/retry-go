@@ -4,6 +4,7 @@ package retry
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -49,11 +50,14 @@ func RetryWithOpts(retryableFunction Retryable, opts RetryOpts) error {
 func RetryCustom(retryableFunction Retryable, onRetryFunction OnRetry, opts RetryOpts) error {
 	var n uint
 
+	errorLog := make(errorLog, 0, opts.tries)
+
 	for n < opts.tries {
 		err := retryableFunction()
 
 		if err != nil {
 			onRetryFunction(n, err)
+			errorLog = append(errorLog, err)
 
 			delayTime := opts.delay * (1 << (n - 1))
 			time.Sleep((time.Duration)(delayTime) * opts.units)
@@ -64,5 +68,23 @@ func RetryCustom(retryableFunction Retryable, onRetryFunction OnRetry, opts Retr
 		n++
 	}
 
-	return fmt.Errorf("All (%d) retries fail", opts.tries)
+	return fmt.Errorf("All (%d) retries fail:\n%s", opts.tries, errorLog)
+}
+
+type errorLog []error
+
+func (log errorLog) String() string {
+	i := 0
+	return strings.Join(log.Map(func(err error) string {
+		i++
+		return fmt.Sprintf("#%d: %s", i, err.Error())
+	}), "\n")
+}
+
+func (vs errorLog) Map(f func(error) string) []string {
+	vsm := make([]string, len(vs))
+	for i, v := range vs {
+		vsm[i] = f(v)
+	}
+	return vsm
 }
