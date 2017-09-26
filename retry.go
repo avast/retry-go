@@ -74,17 +74,10 @@ func RetryCustom(retryableFunction Retryable, onRetryFunction OnRetry, opts Retr
 type errorLog []error
 
 func (log errorLog) String() string {
-	i := 0
-	return strings.Join(log.Map(func(err error) string {
-		i++
-		return fmt.Sprintf("#%d: %s", i, err.Error())
-	}), "\n")
-}
-
-func (vs errorLog) Map(f func(error) string) []string {
-	vsm := make([]string, len(vs))
-	for i, v := range vs {
-		vsm[i] = f(v)
+	logWithNumber := make([]string, len(log))
+	for i, l := range log {
+		logWithNumber[i] = fmt.Sprintf("#%d: %s", i+1, l.Error())
 	}
-	return vsm
+
+	return strings.Join(logWithNumber, "\n")
 }

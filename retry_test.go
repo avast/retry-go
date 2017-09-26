@@ -15,7 +15,19 @@ func TestCustom(t *testing.T) {
 		NewRetryOpts().Units(time.Nanosecond),
 	)
 	assert.Error(t, err)
-	t.Log(err)
+
+	expectedErrorFormat := `All (10) retries fail:
+#1: test
+#2: test
+#3: test
+#4: test
+#5: test
+#6: test
+#7: test
+#8: test
+#9: test
+#10: test`
+	assert.Equal(t, expectedErrorFormat, err.Error(), "retry error format")
 	assert.Equal(t, uint(45), retrySum, "right count of retry")
 
 	retrySum = 0
