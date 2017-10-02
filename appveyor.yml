@@ -8,7 +8,7 @@ platform: x64
 install:
   - go version
   - go env
-  - go get -v -t
+  - make setup
 
 build_script:
-  - go test -v ./...
+  - make ci

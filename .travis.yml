@@ -10,10 +10,10 @@ go:
   - tip
 
 install:
-  - go get -t -v -d ./...
+  - make setup
 
 script:
-  - ./test.sh
+  - make ci
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)

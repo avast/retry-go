@@ -1,5 +1,45 @@
-// Simple library for retry mechanism
-// slightly inspired by https://metacpan.org/pod/Try::Tiny::Retry
+/*
+Simple library for retry mechanism
+
+slightly inspired by [Try::Tiny::Retry](https://metacpan.org/pod/Try::Tiny::Retry)
+
+SYNOPSIS
+
+http get with retry:
+
+	url := "http://example.com"
+	var body []byte
+
+	err := retry.Retry(
+		func() error {
+			resp, err := http.Get(url)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			body, err = ioutil.ReadAll(resp.Body)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		},
+	)
+
+	fmt.Println(body)
+
+[next examples](https://github.com/avast/retry-go/examples)
+
+
+SEE ALSO
+
+* [giantswarm/retry-go](https://github.com/giantswarm/retry-go) - slightly complicated interface.
+
+* [sethgrid/pester](https://github.com/sethgrid/pester) - only http retry for http calls with retries and backoff
+
+* [cenkalti/backoff](https://github.com/cenkalti/backoff) - Go port of the exponential backoff algorithm from Google's HTTP Client Library for Java. Really complicated interface.
+
+*/
 package retry
 
 import (
