@@ -3,6 +3,12 @@ TEST_PATTERN?=.
 TEST_OPTIONS?=
 DEP?=$$(which dep)
 
+ifeq ($(OS),Windows_NT)
+	DEP_VERS=dep-windows-amd64
+else
+	DEP_VERS=dep-linux-amd64
+else
+
 setup: ## Install all the build and lint dependencies
 	go get -u github.com/alecthomas/gometalinter
 	go get -u github.com/pierrre/gotestcover
@@ -10,7 +16,7 @@ setup: ## Install all the build and lint dependencies
 	go get -u github.com/robertkrimen/godocdown/godocdown
 	gometalinter --install
 	@if [ "$(DEP)" = "" ]; then\
-		curl -L https://github.com/golang/dep/releases/download/v0.3.1/dep-linux-amd64 >| dep;\
+		curl -L https://github.com/golang/dep/releases/download/v0.3.1/$(DEP_VERS) >| dep;\
 		chmod +x dep;\
 	fi
 	dep ensure
