@@ -18,8 +18,8 @@ setup: ## Install all the build and lint dependencies
 	go get -u github.com/robertkrimen/godocdown/godocdown
 	gometalinter.v1 --install
 	@if [ "$(DEP)" = "" ]; then\
-		curl -L https://github.com/golang/dep/releases/download/v0.3.1/$(DEP_VERS) >| dep;\
-		chmod +x dep;\
+		curl -L https://github.com/golang/dep/releases/download/v0.3.1/$(DEP_VERS) >| $$GOPATH/bin/dep;\
+		chmod +x $$GOPATH/bin/dep;\
 	fi
 	dep ensure
 
