@@ -7,7 +7,7 @@ platform: x64
 
 install:
   - copy c:\MinGW\bin\mingw32-make.exe c:\MinGW\bin\make.exe
-  - set GOPATH=c:\go
+  - set GOPATH=C:\Users\appveyor\go
   - set PATH=%PATH%;c:\MinGW\bin
   - set PATH=%PATH%;%GOPATH%\bin;c:\go\bin
   - set GOBIN=%GOPATH%\bin
