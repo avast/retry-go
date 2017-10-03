@@ -1,6 +1,6 @@
 version: "{build}"
 
-clone_folder: c:\go\src\github.com\avast\retry-go
+clone_folder: c:\Users\appveyor\go\src\github.com\avast\retry-go
 
 #os: Windows Server 2012 R2
 platform: x64
