@@ -8,6 +8,7 @@ platform: x64
 install:
   - go version
   - go env
+  - copy c:\MinGW\bin\mingw32-make.exe c:\MinGW\bin\make.exe
   - make setup
 
 build_script:
