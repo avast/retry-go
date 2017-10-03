@@ -7,7 +7,7 @@ ifeq ($(OS),Windows_NT)
 	DEP_VERS=dep-windows-amd64
 else
 	DEP_VERS=dep-linux-amd64
-else
+endif
 
 setup: ## Install all the build and lint dependencies
 	go get -u github.com/alecthomas/gometalinter
