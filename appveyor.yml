@@ -6,11 +6,12 @@ clone_folder: c:\go\src\github.com\avast\retry-go
 platform: x64
 
 install:
-  - go version
-  - go env
   - copy c:\MinGW\bin\mingw32-make.exe c:\MinGW\bin\make.exe
   - set PATH=%PATH%;c:\MinGW\bin
   - set PATH=%PATH%;%GOPATH%\bin;c:\go\bin
+  - set GOBIN=%GOPATH%\bin
+  - go version
+  - go env
   - make setup
 
 build_script:
