@@ -9,6 +9,7 @@ install:
   - go version
   - go env
   - copy c:\MinGW\bin\mingw32-make.exe c:\MinGW\bin\make.exe
+  - set PATH=%PATH%;c:\MinGW\bin
   - make setup
 
 build_script:
