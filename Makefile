@@ -7,7 +7,9 @@ setup: ## Install all the build and lint dependencies
 	go get -u github.com/pierrre/gotestcover
 	go get -u golang.org/x/tools/cmd/cover
 	go get -u github.com/robertkrimen/godocdown/godocdown
+	go get -u github.com/golang/dep/cmd/dep
 	gometalinter --install
+	dep ensure
 
 generate: ## Generate README.md
 	godocdown >| README.md
