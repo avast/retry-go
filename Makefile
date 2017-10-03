@@ -1,14 +1,18 @@
 SOURCE_FILES?=$$(go list ./... | grep -v /vendor/)
 TEST_PATTERN?=.
 TEST_OPTIONS?=
+DEP?=$$(which dep)
 
 setup: ## Install all the build and lint dependencies
 	go get -u github.com/alecthomas/gometalinter
 	go get -u github.com/pierrre/gotestcover
 	go get -u golang.org/x/tools/cmd/cover
 	go get -u github.com/robertkrimen/godocdown/godocdown
-	go get -u github.com/golang/dep/cmd/dep
 	gometalinter --install
+	@if [ "$(DEP)" = "" ]; then\
+		curl -L https://github.com/golang/dep/releases/download/v0.3.1/dep-linux-amd64 >| dep;\
+		chmod +x dep;\
+	fi
 	dep ensure
 
 generate: ## Generate README.md
