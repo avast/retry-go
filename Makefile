@@ -10,6 +10,8 @@ else
 endif
 
 setup: ## Install all the build and lint dependencies
+	# fix of gopkg.in issue (https://github.com/niemeyer/gopkg/issues/50)
+	git config --global http.https://gopkg.in.followRedirects true
 	go get -u gopkg.in/alecthomas/gometalinter.v1
 	go get -u github.com/pierrre/gotestcover
 	go get -u golang.org/x/tools/cmd/cover
