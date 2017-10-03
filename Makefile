@@ -10,11 +10,11 @@ else
 endif
 
 setup: ## Install all the build and lint dependencies
-	go get -u github.com/alecthomas/gometalinter
+	go get -u gopkg.in/alecthomas/gometalinter.v1
 	go get -u github.com/pierrre/gotestcover
 	go get -u golang.org/x/tools/cmd/cover
 	go get -u github.com/robertkrimen/godocdown/godocdown
-	gometalinter --install
+	gometalinter.v1 --install
 	@if [ "$(DEP)" = "" ]; then\
 		curl -L https://github.com/golang/dep/releases/download/v0.3.1/$(DEP_VERS) >| dep;\
 		chmod +x dep;\
@@ -34,7 +34,7 @@ fmt: ## gofmt and goimports all go files
 	find . -name '*.go' -not -wholename './vendor/*' | while read -r file; do gofmt -w -s "$$file"; goimports -w "$$file"; done
 
 lint: ## Run all the linters
-	gometalinter --vendor --disable-all \
+	gometalinter.v1 --vendor --disable-all \
 		--enable=deadcode \
 		--enable=ineffassign \
 		--enable=gosimple \
