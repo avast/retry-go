@@ -56,25 +56,6 @@ type Retryable func() error
 type OnRetry func(n uint, err error)
 
 // Retry - simple retry
-//
-//	url := "http://example.com"
-//	var body []byte
-//
-//	err := retry.Retry(
-//		func() error {
-//			resp, err := http.Get(url)
-//			if err != nil {
-//				return err
-//			}
-//			defer resp.Body.Close()
-//			body, err = ioutil.ReadAll(resp.Body)
-//			if err != nil {
-//				return err
-//			}
-//
-//			return nil
-//		},
-//	)
 func Retry(retryableFunction Retryable) error {
 	return RetryWithOpts(retryableFunction, NewRetryOpts())
 }
