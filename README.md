@@ -55,6 +55,12 @@ http calls with retries and backoff
 exponential backoff algorithm from Google's HTTP Client Library for Java. Really
 complicated interface.
 
+* [rafaeljesus/retry-go](https://github.com/rafaeljesus/retry-go) - looks good,
+slightly similar as this package, don't have 'simple' `Retry` method
+
+* [matryer/try](https://github.com/matryer/try) - very popular package,
+nonintuitive interface (for me)
+
 ## Usage
 
 #### func  Retry
@@ -101,7 +107,8 @@ error interface
 func (e Error) WrappedErrors() []error
 ```
 WrappedErrors returns the list of errors that this Error is wrapping. It is an
-implementation of the errwrap.Wrapper interface so that multierror.Error can be
+implementation of the `errwrap.Wrapper` interface in package
+[errwrap](https://github.com/hashicorp/errwrap) so that `retry.Error` can be
 used with that library.
 
 #### type OnRetry
