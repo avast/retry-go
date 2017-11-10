@@ -17,7 +17,7 @@ func TestCustom(t *testing.T) {
 	)
 	assert.Error(t, err)
 
-	expectedErrorFormat := `All (10) retries fail:
+	expectedErrorFormat := `All retries fail:
 #1: test
 #2: test
 #3: test

@@ -39,6 +39,10 @@ SEE ALSO
 
 * [cenkalti/backoff](https://github.com/cenkalti/backoff) - Go port of the exponential backoff algorithm from Google's HTTP Client Library for Java. Really complicated interface.
 
+* [rafaeljesus/retry-go](https://github.com/rafaeljesus/retry-go) - looks good, slightly similar as this package, don't have 'simple' `Retry` method
+
+* [matryer/try](https://github.com/matryer/try) - very popular package, nonintuitive interface (for me)
+
 */
 package retry
 
@@ -71,7 +75,7 @@ func RetryWithOpts(retryableFunction Retryable, opts RetryOpts) error {
 func RetryCustom(retryableFunction Retryable, onRetryFunction OnRetry, opts RetryOpts) error {
 	var n uint
 
-	errorLog := make(errorLog, opts.tries)
+	errorLog := make(Error, opts.tries)
 
 	for n < opts.tries {
 		err := retryableFunction()
@@ -89,16 +93,27 @@ func RetryCustom(retryableFunction Retryable, onRetryFunction OnRetry, opts Retr
 		n++
 	}
 
-	return fmt.Errorf("All (%d) retries fail:\n%s", opts.tries, errorLog)
+	return errorLog
 }
 
-type errorLog []error
+// Error type represents list of errors in retry
+type Error []error
 
-func (log errorLog) String() string {
-	logWithNumber := make([]string, len(log))
-	for i, l := range log {
+// Error method return string representation of Error
+// It is an implementation of error interface
+func (e Error) Error() string {
+	logWithNumber := make([]string, len(e))
+	for i, l := range e {
 		logWithNumber[i] = fmt.Sprintf("#%d: %s", i+1, l.Error())
 	}
 
-	return strings.Join(logWithNumber, "\n")
+	return fmt.Sprintf("All retries fail:\n%s", strings.Join(logWithNumber, "\n"))
+}
+
+// WrappedErrors returns the list of errors that this Error is wrapping.
+// It is an implementation of the `errwrap.Wrapper` interface
+// in package [errwrap](https://github.com/hashicorp/errwrap) so that
+// `retry.Error` can be used with that library.
+func (e Error) WrappedErrors() []error {
+	return e
 }

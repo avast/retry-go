@@ -3,9 +3,6 @@ TEST_PATTERN?=.
 TEST_OPTIONS?=
 DEP?=$$(which dep)
 
-GO15VENDOREXPERIMENT=1
-export GO15VENDOREXPERIMENT
-
 ifeq ($(OS),Windows_NT)
 	DEP_VERS=dep-windows-amd64
 else

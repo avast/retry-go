@@ -79,6 +79,31 @@ func RetryWithOpts(retryableFunction Retryable, opts RetryOpts) error
 ```
 RetryWithOpts - customizable retry via RetryOpts
 
+#### type Error
+
+```go
+type Error []error
+```
+
+Error type represents list of errors in retry
+
+#### func (Error) Error
+
+```go
+func (e Error) Error() string
+```
+Error method return string representation of Error It is an implementation of
+error interface
+
+#### func (Error) WrappedErrors
+
+```go
+func (e Error) WrappedErrors() []error
+```
+WrappedErrors returns the list of errors that this Error is wrapping. It is an
+implementation of the errwrap.Wrapper interface so that multierror.Error can be
+used with that library.
+
 #### type OnRetry
 
 ```go
