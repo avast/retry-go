@@ -1,11 +1,12 @@
 package retry_test
 
 import (
-	"github.com/avast/retry-go"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
 	"testing"
+
+	"github.com/avast/retry-go"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGet(t *testing.T) {
@@ -15,16 +16,17 @@ func TestGet(t *testing.T) {
 	err := retry.Retry(
 		func() error {
 			resp, err := http.Get(url)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			body, err = ioutil.ReadAll(resp.Body)
-			if err != nil {
-				return err
+
+			if err == nil {
+				defer func() {
+					if err := resp.Body.Close(); err != nil {
+						panic(err)
+					}
+				}()
+				body, err = ioutil.ReadAll(resp.Body)
 			}
 
-			return nil
+			return err
 		},
 	)
 

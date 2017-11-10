@@ -2,9 +2,10 @@ package retry
 
 import (
 	"errors"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCustom(t *testing.T) {
@@ -16,7 +17,7 @@ func TestCustom(t *testing.T) {
 	)
 	assert.Error(t, err)
 
-	expectedErrorFormat := `All (10) retries fail:
+	expectedErrorFormat := `All retries fail:
 #1: test
 #2: test
 #3: test
