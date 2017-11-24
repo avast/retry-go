@@ -61,6 +61,16 @@ slightly similar as this package, don't have 'simple' `Retry` method
 * [matryer/try](https://github.com/matryer/try) - very popular package,
 nonintuitive interface (for me)
 
+
+### BREAKING CHANGES
+
+0.3.0 -> 1.0.0
+
+* `retry.Retry` function are changed to `retry.Do` function
+
+* `retry.RetryCustom` (OnRetry) and `retry.RetryCustomWithOpts` functions are
+now implement via functions produces Options (aka `retry.OnRetryFunction`)
+
 ## Usage
 
 #### func  Do
@@ -123,7 +133,7 @@ Delay set delay between retry default are 1e5 units
 ```go
 func OnRetryFunction(onRetryFunction OnRetry) Option
 ```
-OnRetry function callback are called each retry
+OnRetryFunction function callback are called each retry
 
 log each retry example:
 
