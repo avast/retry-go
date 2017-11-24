@@ -13,7 +13,7 @@ func TestGet(t *testing.T) {
 	url := "http://example.com"
 	var body []byte
 
-	err := retry.Retry(
+	err := retry.Do(
 		func() error {
 			resp, err := http.Get(url)
 

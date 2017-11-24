@@ -22,7 +22,7 @@ http get with retry:
     url := "http://example.com"
     var body []byte
 
-    err := retry.Retry(
+    err := retry.Do(
     	func() error {
     		resp, err := http.Get(url)
     		if err != nil {
@@ -61,29 +61,23 @@ slightly similar as this package, don't have 'simple' `Retry` method
 * [matryer/try](https://github.com/matryer/try) - very popular package,
 nonintuitive interface (for me)
 
+
+### BREAKING CHANGES
+
+0.3.0 -> 1.0.0
+
+* `retry.Retry` function are changed to `retry.Do` function
+
+* `retry.RetryCustom` (OnRetry) and `retry.RetryCustomWithOpts` functions are
+now implement via functions produces Options (aka `retry.OnRetryFunction`)
+
 ## Usage
 
-#### func  Retry
+#### func  Do
 
 ```go
-func Retry(retryableFunction Retryable) error
+func Do(retryableFunc RetryableFunc, opts ...Option) error
 ```
-Retry - simple retry
-
-#### func  RetryCustom
-
-```go
-func RetryCustom(retryableFunction Retryable, onRetryFunction OnRetry, opts RetryOpts) error
-```
-RetryCustom - the most customizable retry is possible set OnRetry function
-callback which are called each retry
-
-#### func  RetryWithOpts
-
-```go
-func RetryWithOpts(retryableFunction Retryable, opts RetryOpts) error
-```
-RetryWithOpts - customizable retry via RetryOpts
 
 #### type Error
 
@@ -111,57 +105,96 @@ implementation of the `errwrap.Wrapper` interface in package
 [errwrap](https://github.com/hashicorp/errwrap) so that `retry.Error` can be
 used with that library.
 
-#### type OnRetry
+#### type OnRetryFunc
 
 ```go
-type OnRetry func(n uint, err error)
+type OnRetryFunc func(n uint, err error)
 ```
 
-Function signature of OnRetry function n = count of tries
+Function signature of OnRetry function n = count of attempts
 
-#### type RetryOpts
+#### type Option
 
 ```go
-type RetryOpts struct {
-}
+type Option func(*config)
 ```
 
-Struct for configure retry tries - count of tries delay - waiting time units -
-waiting time unit (for tests purpose)
+Option represents an option for retry.
 
-#### func  NewRetryOpts
+#### func  Attempts
 
 ```go
-func NewRetryOpts() RetryOpts
+func Attempts(attempts uint) Option
 ```
-Create new RetryOpts struct with default values default tries are 10 default
-delay are 1e5 default units are microsecond
+Attempts set count of retry default is 10
 
-#### func (RetryOpts) Delay
+#### func  Delay
 
 ```go
-func (opts RetryOpts) Delay(delay time.Duration) RetryOpts
+func Delay(delay time.Duration) Option
 ```
-Delay setter
+Delay set delay between retry default are 1e5 units
 
-#### func (RetryOpts) Tries
+#### func  OnRetry
 
 ```go
-func (opts RetryOpts) Tries(tries uint) RetryOpts
+func OnRetry(onRetry OnRetryFunc) Option
 ```
-Tries setter
+OnRetry function callback are called each retry
 
-#### func (RetryOpts) Units
+log each retry example:
+
+    retry.Do(
+    	func() error {
+    		return errors.New("some error")
+    	},
+    	retry.OnRetry(func(n unit, err error) {
+    		log.Printf("#%d: %s\n", n, err)
+    	}),
+    )
+
+#### func  RetryIf
 
 ```go
-func (opts RetryOpts) Units(timeUnit time.Duration) RetryOpts
+func RetryIf(retryIf RetryIfFunc) Option
 ```
-Units setter
+RetryIf controls whether a retry should be attempted after an error (assuming
+there are any retry attempts remaining)
 
-#### type Retryable
+skip retry if special error example:
+
+    retry.Do(
+    	func() error {
+    		return errors.New("special error")
+    	},
+    	retry.RetryIf(func(err error) bool {
+    		if err.Error() == "special error" {
+    			return false
+    		}
+    		return true
+    	})
+    )
+
+#### func  Units
 
 ```go
-type Retryable func() error
+func Units(units time.Duration) Option
+```
+Units set unit of delay (probably only for tests purpose) default are
+microsecond
+
+#### type RetryIfFunc
+
+```go
+type RetryIfFunc func(error) bool
+```
+
+Function signature of retry if function
+
+#### type RetryableFunc
+
+```go
+type RetryableFunc func() error
 ```
 
 Function signature of retryable function
