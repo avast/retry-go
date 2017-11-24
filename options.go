@@ -67,7 +67,7 @@ func OnRetryFunction(onRetryFunction OnRetry) Option {
 //			return errors.New("special error")
 //		},
 //		retry.RetryIfFunction(func(err error) bool {
-//			if strings.Contains(err.Error, "special error") {
+//			if err.Error() == "special error" {
 //				return false
 //			}
 //			return true
