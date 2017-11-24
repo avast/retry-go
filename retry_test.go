@@ -12,12 +12,12 @@ func TestDo(t *testing.T) {
 	var retrySum uint
 	err := Do(
 		func() error { return errors.New("test") },
-		OnRetryFunction(func(n uint, err error) { retrySum += n }),
+		OnRetry(func(n uint, err error) { retrySum += n }),
 		Units(time.Nanosecond),
 	)
 	assert.Error(t, err)
 
-	expectedErrorFormat := `All retries fail:
+	expectedErrorFormat := `All attempts fail:
 #1: test
 #2: test
 #3: test
@@ -34,7 +34,7 @@ func TestDo(t *testing.T) {
 	retrySum = 0
 	err = Do(
 		func() error { return nil },
-		OnRetryFunction(func(n uint, err error) { retrySum += n }),
+		OnRetry(func(n uint, err error) { retrySum += n }),
 	)
 	assert.NoError(t, err)
 	assert.Equal(t, uint(0), retrySum, "no retry")
@@ -48,15 +48,15 @@ func TestDo(t *testing.T) {
 				return errors.New("test")
 			}
 		},
-		OnRetryFunction(func(n uint, err error) { retryCount++ }),
-		RetryIfFunction(func(err error) bool {
+		OnRetry(func(n uint, err error) { retryCount++ }),
+		RetryIf(func(err error) bool {
 			return err.Error() != "special"
 		}),
 		Units(time.Nanosecond),
 	)
 	assert.Error(t, err)
 
-	expectedErrorFormat = `All retries fail:
+	expectedErrorFormat = `All attempts fail:
 #1: test
 #2: test
 #3: special`

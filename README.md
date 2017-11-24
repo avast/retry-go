@@ -76,7 +76,7 @@ now implement via functions produces Options (aka `retry.OnRetryFunction`)
 #### func  Do
 
 ```go
-func Do(retryableFunction Retryable, opts ...Option) error
+func Do(retryableFunc RetryableFunc, opts ...Option) error
 ```
 
 #### type Error
@@ -105,13 +105,13 @@ implementation of the `errwrap.Wrapper` interface in package
 [errwrap](https://github.com/hashicorp/errwrap) so that `retry.Error` can be
 used with that library.
 
-#### type OnRetry
+#### type OnRetryFunc
 
 ```go
-type OnRetry func(n uint, err error)
+type OnRetryFunc func(n uint, err error)
 ```
 
-Function signature of OnRetry function n = count of tries
+Function signature of OnRetry function n = count of attempts
 
 #### type Option
 
@@ -121,6 +121,13 @@ type Option func(*config)
 
 Option represents an option for retry.
 
+#### func  Attempts
+
+```go
+func Attempts(attempts uint) Option
+```
+Attempts set count of retry default is 10
+
 #### func  Delay
 
 ```go
@@ -128,12 +135,12 @@ func Delay(delay time.Duration) Option
 ```
 Delay set delay between retry default are 1e5 units
 
-#### func  OnRetryFunction
+#### func  OnRetry
 
 ```go
-func OnRetryFunction(onRetryFunction OnRetry) Option
+func OnRetry(onRetry OnRetryFunc) Option
 ```
-OnRetryFunction function callback are called each retry
+OnRetry function callback are called each retry
 
 log each retry example:
 
@@ -141,18 +148,18 @@ log each retry example:
     	func() error {
     		return errors.New("some error")
     	},
-    	retry.OnRetryFunction(func(n unit, err error) {
+    	retry.OnRetry(func(n unit, err error) {
     		log.Printf("#%d: %s\n", n, err)
     	}),
     )
 
-#### func  RetryIfFunction
+#### func  RetryIf
 
 ```go
-func RetryIfFunction(retryIfFunction RetryIfFunc) Option
+func RetryIf(retryIf RetryIfFunc) Option
 ```
-RetryIfFunction controls whether a retry should be attempted after an error
-(assuming there are any retry attempts remaining)
+RetryIf controls whether a retry should be attempted after an error (assuming
+there are any retry attempts remaining)
 
 skip retry if special error example:
 
@@ -160,20 +167,13 @@ skip retry if special error example:
     	func() error {
     		return errors.New("special error")
     	},
-    	retry.RetryIfFunction(func(err error) bool {
-    		if strings.Contains(err.Error, "special error") {
+    	retry.RetryIf(func(err error) bool {
+    		if err.Error() == "special error" {
     			return false
     		}
     		return true
     	})
     )
-
-#### func  Tries
-
-```go
-func Tries(tries uint) Option
-```
-Tries set count of retry default is 10
 
 #### func  Units
 
@@ -191,10 +191,10 @@ type RetryIfFunc func(error) bool
 
 Function signature of retry if function
 
-#### type Retryable
+#### type RetryableFunc
 
 ```go
-type Retryable func() error
+type RetryableFunc func() error
 ```
 
 Function signature of retryable function

@@ -49,7 +49,7 @@ BREAKING CHANGES
 
 * `retry.Retry` function are changed to `retry.Do` function
 
-* `retry.RetryCustom` (OnRetry) and `retry.RetryCustomWithOpts` functions are now implement via functions produces Options (aka `retry.OnRetryFunction`)
+* `retry.RetryCustom` (OnRetry) and `retry.RetryCustomWithOpts` functions are now implement via functions produces Options (aka `retry.OnRetry`)
 
 
 */
@@ -61,25 +61,18 @@ import (
 	"time"
 )
 
-// Function signature of retry if function
-type RetryIfFunc func(error) bool
-
 // Function signature of retryable function
-type Retryable func() error
+type RetryableFunc func() error
 
-// Function signature of OnRetry function
-// n = count of tries
-type OnRetry func(n uint, err error)
-
-func Do(retryableFunction Retryable, opts ...Option) error {
+func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	var n uint
 
 	//default
 	config := &config{
-		tries:           10,
-		delay:           1e5,
-		onRetryFunction: func(n uint, err error) {},
-		retryIfFunction: func(err error) bool { return true },
+		attempts: 10,
+		delay:    1e5,
+		onRetry:  func(n uint, err error) {},
+		retryIf:  func(err error) bool { return true },
 	}
 
 	//apply opts
@@ -87,16 +80,16 @@ func Do(retryableFunction Retryable, opts ...Option) error {
 		opt(config)
 	}
 
-	errorLog := make(Error, config.tries)
+	errorLog := make(Error, config.attempts)
 
-	for n < config.tries {
-		err := retryableFunction()
+	for n < config.attempts {
+		err := retryableFunc()
 
 		if err != nil {
-			config.onRetryFunction(n, err)
+			config.onRetry(n, err)
 			errorLog[n] = err
 
-			if !config.retryIfFunction(err) {
+			if !config.retryIf(err) {
 				break
 			}
 
@@ -125,7 +118,7 @@ func (e Error) Error() string {
 		}
 	}
 
-	return fmt.Sprintf("All retries fail:\n%s", strings.Join(logWithNumber, "\n"))
+	return fmt.Sprintf("All attempts fail:\n%s", strings.Join(logWithNumber, "\n"))
 }
 
 func lenWithoutNil(e Error) (count int) {
