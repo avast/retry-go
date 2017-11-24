@@ -8,12 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCustom(t *testing.T) {
+func TestDo(t *testing.T) {
 	var retrySum uint
-	err := RetryCustom(
+	err := Do(
 		func() error { return errors.New("test") },
-		func(n uint, err error) { retrySum += n },
-		NewRetryOpts().Units(time.Nanosecond),
+		OnRetryFunction(func(n uint, err error) { retrySum += n }),
+		Units(time.Nanosecond),
 	)
 	assert.Error(t, err)
 
@@ -32,11 +32,35 @@ func TestCustom(t *testing.T) {
 	assert.Equal(t, uint(45), retrySum, "right count of retry")
 
 	retrySum = 0
-	err = RetryCustom(
+	err = Do(
 		func() error { return nil },
-		func(n uint, err error) { retrySum += n },
-		NewRetryOpts(),
+		OnRetryFunction(func(n uint, err error) { retrySum += n }),
 	)
 	assert.NoError(t, err)
 	assert.Equal(t, uint(0), retrySum, "no retry")
+
+	var retryCount uint
+	err = Do(
+		func() error {
+			if retryCount >= 2 {
+				return errors.New("special")
+			} else {
+				return errors.New("test")
+			}
+		},
+		OnRetryFunction(func(n uint, err error) { retryCount++ }),
+		RetryIfFunction(func(err error) bool {
+			return err.Error() != "special"
+		}),
+		Units(time.Nanosecond),
+	)
+	assert.Error(t, err)
+
+	expectedErrorFormat = `All retries fail:
+#1: test
+#2: test
+#3: special`
+	assert.Equal(t, expectedErrorFormat, err.Error(), "retry error format")
+	assert.Equal(t, uint(3), retryCount, "right count of retry")
+
 }
