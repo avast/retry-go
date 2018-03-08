@@ -28,7 +28,7 @@ http get with retry:
 
 	fmt.Println(body)
 
-[next examples](https://github.com/avast/retry-go/examples)
+[next examples](https://github.com/avast/retry-go/tree/master/examples)
 
 
 SEE ALSO
