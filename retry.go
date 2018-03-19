@@ -71,6 +71,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	config := &config{
 		attempts: 10,
 		delay:    1e5,
+		units:    time.Microsecond,
 		onRetry:  func(n uint, err error) {},
 		retryIf:  func(err error) bool { return true },
 	}

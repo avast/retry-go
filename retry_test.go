@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDo(t *testing.T) {
+func TestDoAllFailed(t *testing.T) {
 	var retrySum uint
 	err := Do(
 		func() error { return errors.New("test") },
@@ -30,17 +30,22 @@ func TestDo(t *testing.T) {
 #10: test`
 	assert.Equal(t, expectedErrorFormat, err.Error(), "retry error format")
 	assert.Equal(t, uint(45), retrySum, "right count of retry")
+}
 
-	retrySum = 0
-	err = Do(
+func TestDoFirstOk(t *testing.T) {
+	var retrySum uint
+	err := Do(
 		func() error { return nil },
 		OnRetry(func(n uint, err error) { retrySum += n }),
 	)
 	assert.NoError(t, err)
 	assert.Equal(t, uint(0), retrySum, "no retry")
 
+}
+
+func TestRetryIf(t *testing.T) {
 	var retryCount uint
-	err = Do(
+	err := Do(
 		func() error {
 			if retryCount >= 2 {
 				return errors.New("special")
@@ -56,11 +61,22 @@ func TestDo(t *testing.T) {
 	)
 	assert.Error(t, err)
 
-	expectedErrorFormat = `All attempts fail:
+	expectedErrorFormat := `All attempts fail:
 #1: test
 #2: test
 #3: special`
 	assert.Equal(t, expectedErrorFormat, err.Error(), "retry error format")
 	assert.Equal(t, uint(3), retryCount, "right count of retry")
 
+}
+
+func TestDefaultSleep(t *testing.T) {
+	start := time.Now()
+	err := Do(
+		func() error { return errors.New("test") },
+		Attempts(3),
+	)
+	dur := time.Since(start)
+	assert.Error(t, err)
+	assert.True(t, dur > 10*time.Millisecond, "3 times default retry is longer then 10ms")
 }
