@@ -2,6 +2,7 @@ SOURCE_FILES?=$$(go list ./... | grep -v /vendor/)
 TEST_PATTERN?=.
 TEST_OPTIONS?=
 DEP?=$$(which dep)
+VERSION?=$$(cat VERSION)
 
 ifeq ($(OS),Windows_NT)
 	DEP_VERS=dep-windows-amd64
@@ -54,6 +55,9 @@ ci: test lint  ## Run all the tests and code checks
 
 build:
 	go build
+
+release: ## Release new version
+	git tag | grep -q $(VERSION) && echo This version was released! Increase VERSION! || git tag $(VERSION) && git push origin $(VERSION)
 
 # Absolutely awesome: http://marmelab.com/blog/2016/02/29/auto-documented-makefile.html
 help:
