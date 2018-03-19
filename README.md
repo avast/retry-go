@@ -69,7 +69,7 @@ nonintuitive interface (for me)
 * `retry.Retry` function are changed to `retry.Do` function
 
 * `retry.RetryCustom` (OnRetry) and `retry.RetryCustomWithOpts` functions are
-now implement via functions produces Options (aka `retry.OnRetryFunction`)
+now implement via functions produces Options (aka `retry.OnRetry`)
 
 ## Usage
 
