@@ -94,6 +94,11 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 				break
 			}
 
+			// if this is last attempt - don't wait
+			if n == config.attempts-1 {
+				break
+			}
+
 			delayTime := config.delay * (1 << (n - 1))
 			time.Sleep((time.Duration)(delayTime) * config.units)
 		} else {
