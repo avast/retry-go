@@ -13,7 +13,7 @@ func TestDoAllFailed(t *testing.T) {
 	err := Do(
 		func() error { return errors.New("test") },
 		OnRetry(func(n uint, err error) { retrySum += n }),
-		Units(time.Nanosecond),
+		Delay(time.Nanosecond),
 	)
 	assert.Error(t, err)
 
@@ -57,7 +57,7 @@ func TestRetryIf(t *testing.T) {
 		RetryIf(func(err error) bool {
 			return err.Error() != "special"
 		}),
-		Units(time.Nanosecond),
+		Delay(time.Nanosecond),
 	)
 	assert.Error(t, err)
 

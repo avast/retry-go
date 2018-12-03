@@ -64,6 +64,15 @@ nonintuitive interface (for me)
 
 ### BREAKING CHANGES
 
+1.0.2 -> 2.0.0
+
+* argument of `retry.Delay` is final delay (no multiplication by `retry.Units`
+anymore)
+
+* function `retry.Units` are removed
+
+* [more about this breaking change](https://github.com/avast/retry-go/issues/7)
+
 0.3.0 -> 1.0.0
 
 * `retry.Retry` function are changed to `retry.Do` function
@@ -133,7 +142,7 @@ Attempts set count of retry default is 10
 ```go
 func Delay(delay time.Duration) Option
 ```
-Delay set delay between retry default are 1e5 units
+Delay set delay between retry default is 100ms
 
 #### func  OnRetry
 
@@ -148,7 +157,7 @@ log each retry example:
     	func() error {
     		return errors.New("some error")
     	},
-    	retry.OnRetry(func(n uint, err error) {
+    	retry.OnRetry(func(n unit, err error) {
     		log.Printf("#%d: %s\n", n, err)
     	}),
     )
@@ -174,14 +183,6 @@ skip retry if special error example:
     		return true
     	})
     )
-
-#### func  Units
-
-```go
-func Units(units time.Duration) Option
-```
-Units set unit of delay (probably only for tests purpose) default are
-microsecond
 
 #### type RetryIfFunc
 

@@ -45,6 +45,15 @@ SEE ALSO
 
 BREAKING CHANGES
 
+1.0.2 -> 2.0.0
+
+* argument of `retry.Delay` is final delay (no multiplication by `retry.Units` anymore)
+
+* function `retry.Units` are removed
+
+* [more about this breaking change](https://github.com/avast/retry-go/issues/7)
+
+
 0.3.0 -> 1.0.0
 
 * `retry.Retry` function are changed to `retry.Do` function
@@ -70,8 +79,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	//default
 	config := &config{
 		attempts: 10,
-		delay:    1e5,
-		units:    time.Microsecond,
+		delay:    100 * time.Millisecond,
 		onRetry:  func(n uint, err error) {},
 		retryIf:  func(err error) bool { return true },
 	}
@@ -100,7 +108,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 			}
 
 			delayTime := config.delay * (1 << (n - 1))
-			time.Sleep((time.Duration)(delayTime) * config.units)
+			time.Sleep(delayTime)
 		} else {
 			return nil
 		}
