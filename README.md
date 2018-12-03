@@ -148,7 +148,7 @@ log each retry example:
     	func() error {
     		return errors.New("some error")
     	},
-    	retry.OnRetry(func(n unit, err error) {
+    	retry.OnRetry(func(n uint, err error) {
     		log.Printf("#%d: %s\n", n, err)
     	}),
     )
