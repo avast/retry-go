@@ -14,7 +14,6 @@ type OnRetryFunc func(n uint, err error)
 type config struct {
 	attempts uint
 	delay    time.Duration
-	units    time.Duration
 	onRetry  OnRetryFunc
 	retryIf  RetryIfFunc
 }
@@ -31,18 +30,10 @@ func Attempts(attempts uint) Option {
 }
 
 // Delay set delay between retry
-// default are 1e5 units
+// default is 100ms
 func Delay(delay time.Duration) Option {
 	return func(c *config) {
 		c.delay = delay
-	}
-}
-
-// Units set unit of delay (probably only for tests purpose)
-// default are microsecond
-func Units(units time.Duration) Option {
-	return func(c *config) {
-		c.units = units
 	}
 }
 
@@ -54,7 +45,7 @@ func Units(units time.Duration) Option {
 //		func() error {
 //			return errors.New("some error")
 //		},
-//		retry.OnRetry(func(n unit, err error) {
+//		retry.OnRetry(func(n uint, err error) {
 //			log.Printf("#%d: %s\n", n, err)
 //		}),
 //	)
