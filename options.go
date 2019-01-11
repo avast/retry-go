@@ -11,11 +11,14 @@ type RetryIfFunc func(error) bool
 // n = count of attempts
 type OnRetryFunc func(n uint, err error)
 
+type DelayTypeFunc func(n uint, config *config) time.Duration
+
 type config struct {
-	attempts uint
-	delay    time.Duration
-	onRetry  OnRetryFunc
-	retryIf  RetryIfFunc
+	attempts  uint
+	delay     time.Duration
+	onRetry   OnRetryFunc
+	retryIf   RetryIfFunc
+	delayType DelayTypeFunc
 }
 
 // Option represents an option for retry.
@@ -35,6 +38,24 @@ func Delay(delay time.Duration) Option {
 	return func(c *config) {
 		c.delay = delay
 	}
+}
+
+// DelayType set type of the delay between retries
+// default is BackOff
+func DelayType(delayType DelayTypeFunc) Option {
+	return func(c *config) {
+		c.delayType = delayType
+	}
+}
+
+// BackOffDelay is a DelayType which increases delay between consecutive retries
+func BackOffDelay(n uint, config *config) time.Duration {
+	return config.delay * (1 << (n - 1))
+}
+
+// FixedDelay is a DelayType which keeps delay the same through all iterations
+func FixedDelay(_ uint, config *config) time.Duration {
+	return config.delay
 }
 
 // OnRetry function callback are called each retry
