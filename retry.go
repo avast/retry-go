@@ -78,10 +78,11 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 
 	//default
 	config := &config{
-		attempts: 10,
-		delay:    100 * time.Millisecond,
-		onRetry:  func(n uint, err error) {},
-		retryIf:  func(err error) bool { return true },
+		attempts:  10,
+		delay:     100 * time.Millisecond,
+		onRetry:   func(n uint, err error) {},
+		retryIf:   func(err error) bool { return true },
+		delayType: BackOffDelay,
 	}
 
 	//apply opts
@@ -107,7 +108,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 				break
 			}
 
-			delayTime := config.delay * (1 << (n - 1))
+			delayTime := config.delayType(n, config)
 			time.Sleep(delayTime)
 		} else {
 			return nil
