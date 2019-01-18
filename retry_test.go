@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"fmt"
 )
 
 func TestDoAllFailed(t *testing.T) {
@@ -91,4 +92,18 @@ func TestFixedSleep(t *testing.T) {
 	dur := time.Since(start)
 	assert.Error(t, err)
 	assert.True(t, dur < 500*time.Millisecond, "3 times default retry is shorter then 500ms")
+}
+
+func TestLastErrorOnly(t *testing.T) {
+	var retrySum uint
+	err := Do(
+		func() error { return errors.New(fmt.Sprintf("%d", retrySum)) },
+		OnRetry(func(n uint, err error) { retrySum += 1 }),
+		Delay(time.Nanosecond),
+		LastErrorOnly(true),
+	)
+	if err.Error() != "9"{
+		fmt.Println(err.Error())
+		t.Fail()
+	}
 }

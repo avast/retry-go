@@ -83,6 +83,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 		onRetry:   func(n uint, err error) {},
 		retryIf:   func(err error) bool { return true },
 		delayType: BackOffDelay,
+		lastErrorOnly: false,
 	}
 
 	//apply opts
@@ -117,6 +118,9 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 		n++
 	}
 
+	if config.lastErrorOnly {
+		 return errorLog.LastError()
+	}
 	return errorLog
 }
 
@@ -152,4 +156,16 @@ func lenWithoutNil(e Error) (count int) {
 // `retry.Error` can be used with that library.
 func (e Error) WrappedErrors() []error {
 	return e
+}
+
+func (e Error) LastError() error {
+	var lastErr error
+	for _, err := range e.WrappedErrors() {
+		if err != nil{
+			lastErr = err
+		} else {
+			return lastErr
+		}
+	}
+	return lastErr
 }
