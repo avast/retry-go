@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"fmt"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDoAllFailed(t *testing.T) {
@@ -102,7 +103,7 @@ func TestLastErrorOnly(t *testing.T) {
 		Delay(time.Nanosecond),
 		LastErrorOnly(true),
 	)
-	if err.Error() != "9"{
+	if err.Error() != "9" {
 		fmt.Println(err.Error())
 		t.Fail()
 	}

@@ -78,11 +78,11 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 
 	//default
 	config := &config{
-		attempts:  10,
-		delay:     100 * time.Millisecond,
-		onRetry:   func(n uint, err error) {},
-		retryIf:   func(err error) bool { return true },
-		delayType: BackOffDelay,
+		attempts:      10,
+		delay:         100 * time.Millisecond,
+		onRetry:       func(n uint, err error) {},
+		retryIf:       func(err error) bool { return true },
+		delayType:     BackOffDelay,
 		lastErrorOnly: false,
 	}
 
@@ -119,7 +119,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	}
 
 	if config.lastErrorOnly {
-		 return errorLog.LastError()
+		return errorLog.LastError()
 	}
 	return errorLog
 }
@@ -161,7 +161,7 @@ func (e Error) WrappedErrors() []error {
 func (e Error) LastError() error {
 	var lastErr error
 	for _, err := range e.WrappedErrors() {
-		if err != nil{
+		if err != nil {
 			lastErr = err
 		} else {
 			return lastErr
