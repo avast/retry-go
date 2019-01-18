@@ -26,7 +26,7 @@ type config struct {
 type Option func(*config)
 
 // return the direct last error that came from the retried function
-// default is false (return wrapped error with everything
+// default is false (return wrapped errors with everything)
 func LastErrorOnly(lastErrorOnly bool) Option {
 	return func(c *config) {
 		c.lastErrorOnly = lastErrorOnly
