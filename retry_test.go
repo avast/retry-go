@@ -104,7 +104,6 @@ func TestLastErrorOnly(t *testing.T) {
 		LastErrorOnly(true),
 	)
 	if err.Error() != "9" {
-		fmt.Println(err.Error())
 		t.Fail()
 	}
 }
