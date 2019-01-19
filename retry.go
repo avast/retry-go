@@ -157,4 +157,3 @@ func lenWithoutNil(e Error) (count int) {
 func (e Error) WrappedErrors() []error {
 	return e
 }
-
