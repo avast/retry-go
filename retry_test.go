@@ -103,7 +103,5 @@ func TestLastErrorOnly(t *testing.T) {
 		Delay(time.Nanosecond),
 		LastErrorOnly(true),
 	)
-	if err.Error() != "9" {
-		t.Fail()
-	}
+	assert.Equal(t, "9", err.Error())
 }
