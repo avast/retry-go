@@ -119,7 +119,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	}
 
 	if config.lastErrorOnly {
-		return errorLog.LastError()
+		return errorLog[n]
 	}
 	return errorLog
 }
@@ -158,14 +158,3 @@ func (e Error) WrappedErrors() []error {
 	return e
 }
 
-func (e Error) LastError() error {
-	var lastErr error
-	for _, err := range e.WrappedErrors() {
-		if err != nil {
-			lastErr = err
-		} else {
-			return lastErr
-		}
-	}
-	return lastErr
-}
