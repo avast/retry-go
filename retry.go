@@ -78,11 +78,12 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 
 	//default
 	config := &config{
-		attempts:  10,
-		delay:     100 * time.Millisecond,
-		onRetry:   func(n uint, err error) {},
-		retryIf:   func(err error) bool { return true },
-		delayType: BackOffDelay,
+		attempts:      10,
+		delay:         100 * time.Millisecond,
+		onRetry:       func(n uint, err error) {},
+		retryIf:       func(err error) bool { return true },
+		delayType:     BackOffDelay,
+		lastErrorOnly: false,
 	}
 
 	//apply opts
@@ -117,6 +118,9 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 		n++
 	}
 
+	if config.lastErrorOnly {
+		return errorLog[n]
+	}
 	return errorLog
 }
 

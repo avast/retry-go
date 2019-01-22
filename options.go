@@ -14,15 +14,24 @@ type OnRetryFunc func(n uint, err error)
 type DelayTypeFunc func(n uint, config *config) time.Duration
 
 type config struct {
-	attempts  uint
-	delay     time.Duration
-	onRetry   OnRetryFunc
-	retryIf   RetryIfFunc
-	delayType DelayTypeFunc
+	attempts      uint
+	delay         time.Duration
+	onRetry       OnRetryFunc
+	retryIf       RetryIfFunc
+	delayType     DelayTypeFunc
+	lastErrorOnly bool
 }
 
 // Option represents an option for retry.
 type Option func(*config)
+
+// return the direct last error that came from the retried function
+// default is false (return wrapped errors with everything)
+func LastErrorOnly(lastErrorOnly bool) Option {
+	return func(c *config) {
+		c.lastErrorOnly = lastErrorOnly
+	}
+}
 
 // Attempts set count of retry
 // default is 10
