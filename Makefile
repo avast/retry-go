@@ -27,6 +27,10 @@ setup:
 		curl -L https://github.com/golangci/golangci-lint/releases/download/v$(LINTER_VERSION)/$(LINTER_FILE) $(LINTER_UNPACK) ;\
 		chmod +x $$GOPATH/bin/golangci-lint;\
 	fi
+	@if [ "$(DEP)" = "" ]; then\
+		curl -L https://github.com/golang/dep/releases/download/v0.3.1/$(DEP_VERS) >| $$GOPATH/bin/dep;\
+		chmod +x $$GOPATH/bin/dep;\
+	fi
 	dep ensure
 
 generate: ## Generate README.md
