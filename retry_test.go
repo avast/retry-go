@@ -98,7 +98,7 @@ func TestFixedSleep(t *testing.T) {
 func TestLastErrorOnly(t *testing.T) {
 	var retrySum uint
 	err := Do(
-		func() error { return errors.New(fmt.Sprintf("%d", retrySum)) },
+		func() error { return fmt.Errorf("%d", retrySum) },
 		OnRetry(func(n uint, err error) { retrySum += 1 }),
 		Delay(time.Nanosecond),
 		LastErrorOnly(true),

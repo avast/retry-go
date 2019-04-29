@@ -3,31 +3,38 @@ TEST_PATTERN?=.
 TEST_OPTIONS?=
 DEP?=$$(which dep)
 VERSION?=$$(cat VERSION)
+LINTER?=$$(which golangci-lint)
+LINTER_VERSION=1.15.0
 
 ifeq ($(OS),Windows_NT)
 	DEP_VERS=dep-windows-amd64
+	LINTER_FILE=golangci-lint-$(LINTER_VERSION)-windows-amd64.zip
+	LINTER_UNPACK= >| app.zip; unzip -j app.zip -d $$GOPATH/bin; rm app.zip
+else ifeq ($(OS), Darwin)
+	LINTER_FILE=golangci-lint-$(LINTER_VERSION)-darwin-amd64.tar.gz
+	LINTER_UNPACK= | tar xzf - -C $$GOPATH/bin --wildcards --strip 1 "**/golangci-lint"
 else
 	DEP_VERS=dep-linux-amd64
+	LINTER_FILE=golangci-lint-$(LINTER_VERSION)-linux-amd64.tar.gz
+	LINTER_UNPACK= | tar xzf - -C $$GOPATH/bin --wildcards --strip 1 "**/golangci-lint"
 endif
 
-setup: ## Install all the build and lint dependencies
-	# fix of gopkg.in issue (https://github.com/niemeyer/gopkg/issues/50)
-	git config --global http.https://gopkg.in.followRedirects true
-	go get -u gopkg.in/alecthomas/gometalinter.v1
+setup:
 	go get -u github.com/pierrre/gotestcover
 	go get -u golang.org/x/tools/cmd/cover
 	go get -u github.com/robertkrimen/godocdown/godocdown
-	gometalinter.v1 --install
-	@if [ "$(DEP)" = "" ]; then\
-		curl -L https://github.com/golang/dep/releases/download/v0.3.1/$(DEP_VERS) >| $$GOPATH/bin/dep;\
-		chmod +x $$GOPATH/bin/dep;\
+	@if [ "$(LINTER)" = "" ]; then\
+		curl -L https://github.com/golangci/golangci-lint/releases/download/v$(LINTER_VERSION)/$(LINTER_FILE) $(LINTER_UNPACK) ;\
+		chmod +x $$GOPATH/bin/golangci-lint;\
 	fi
 	dep ensure
 
 generate: ## Generate README.md
 	godocdown >| README.md
 
-test: generate ## Run all the tests
+test: generate test_and_cover_report lint
+
+test_and_cover_report:
 	gotestcover $(TEST_OPTIONS) -covermode=atomic -coverprofile=coverage.txt $(SOURCE_FILES) -run $(TEST_PATTERN) -timeout=2m
 
 cover: test ## Run all the tests and opens the coverage report
@@ -37,21 +44,9 @@ fmt: ## gofmt and goimports all go files
 	find . -name '*.go' -not -wholename './vendor/*' | while read -r file; do gofmt -w -s "$$file"; goimports -w "$$file"; done
 
 lint: ## Run all the linters
-	gometalinter.v1 --vendor --disable-all \
-		--enable=deadcode \
-		--enable=ineffassign \
-		--enable=gosimple \
-		--enable=staticcheck \
-		--enable=gofmt \
-		--enable=goimports \
-		--enable=dupl \
-		--enable=misspell \
-		--enable=errcheck \
-		--enable=vet \
-		--deadline=10m \
-		./...
+	golangci-lint run
 
-ci: test lint  ## Run all the tests and code checks
+ci: test_and_cover_report ## Run all the tests but no linters - use https://golangci.com integration instead
 
 build:
 	go build
