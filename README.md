@@ -242,7 +242,7 @@ skip retry if special error example:
     	})
     )
 
-By default RetryIf stops execution if the error is wrapped using
+The default RetryIf stops execution if the error is wrapped using
 `retry.Unrecoverable`, so above example may also be shortened to:
 
     retry.Do(
