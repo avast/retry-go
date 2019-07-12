@@ -159,15 +159,11 @@ func (e Error) WrappedErrors() []error {
 }
 
 type unrecoverableError struct {
-	inner error
-}
-
-func (err unrecoverableError) Error() string {
-	return err.inner.Error()
+	error
 }
 
 // Unrecoverable wraps an error in `unrecoverableError` struct
-func Unrecoverable(err error) unrecoverableError {
+func Unrecoverable(err error) error {
 	return unrecoverableError{err}
 }
 
@@ -179,7 +175,7 @@ func IsRecoverable(err error) bool {
 
 func unpackUnrecoverable(err error) error {
 	if unrecoverable, isUnrecoverable := err.(unrecoverableError); isUnrecoverable {
-		return unrecoverable.inner
+		return unrecoverable.error
 	}
 
 	return err
