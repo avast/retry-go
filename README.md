@@ -102,6 +102,20 @@ func FixedDelay(_ uint, config *Config) time.Duration
 ```
 FixedDelay is a DelayType which keeps delay the same through all iterations
 
+#### func  IsRecoverable
+
+```go
+func IsRecoverable(err error) bool
+```
+IsRecoverable checks if error is an instance of `unrecoverableError`
+
+#### func  Unrecoverable
+
+```go
+func Unrecoverable(err error) unrecoverableError
+```
+Unrecoverable wraps an error in `unrecoverableError` struct
+
 #### type Config
 
 ```go
@@ -226,6 +240,15 @@ skip retry if special error example:
     		}
     		return true
     	})
+    )
+
+By default RetryIf stops execution if the error is wrapped using
+`retry.Unrecoverable`, so above example may also be shortened to:
+
+    retry.Do(
+    	func() error {
+    		return retry.Unrecoverable(errors.New("special error"))
+    	}
     )
 
 #### type RetryIfFunc

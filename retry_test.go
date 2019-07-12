@@ -105,3 +105,18 @@ func TestLastErrorOnly(t *testing.T) {
 	)
 	assert.Equal(t, "9", err.Error())
 }
+
+func TestUnrecoverableError(t *testing.T) {
+	attempts := 0
+	expectedErr := errors.New("error")
+	err := Do(
+		func() error {
+			attempts++
+			return Unrecoverable(expectedErr)
+		},
+		Attempts(2),
+		LastErrorOnly(true),
+	)
+	assert.Equal(t, expectedErr, err)
+	assert.Equal(t, 1, attempts)
+}
