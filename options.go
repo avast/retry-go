@@ -59,7 +59,7 @@ func DelayType(delayType DelayTypeFunc) Option {
 
 // BackOffDelay is a DelayType which increases delay between consecutive retries
 func BackOffDelay(n uint, config *Config) time.Duration {
-	return config.delay * (1 << (n - 1))
+	return config.delay * (1 << n)
 }
 
 // FixedDelay is a DelayType which keeps delay the same through all iterations
