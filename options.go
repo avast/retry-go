@@ -101,6 +101,15 @@ func OnRetry(onRetry OnRetryFunc) Option {
 //			return true
 //		})
 //	)
+//
+// By default RetryIf stops execution if the error is wrapped using `retry.Unrecoverable`,
+// so above example may also be shortened to:
+//
+//	retry.Do(
+//		func() error {
+//			return retry.Unrecoverable(errors.New("special error"))
+//		}
+//	)
 func RetryIf(retryIf RetryIfFunc) Option {
 	return func(c *Config) {
 		c.retryIf = retryIf

@@ -81,7 +81,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 		attempts:      10,
 		delay:         100 * time.Millisecond,
 		onRetry:       func(n uint, err error) {},
-		retryIf:       func(err error) bool { return true },
+		retryIf:       IsRecoverable,
 		delayType:     BackOffDelay,
 		lastErrorOnly: false,
 	}
@@ -98,7 +98,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 
 		if err != nil {
 			config.onRetry(n, err)
-			errorLog[n] = err
+			errorLog[n] = unpackUnrecoverable(err)
 
 			if !config.retryIf(err) {
 				break
@@ -156,4 +156,27 @@ func lenWithoutNil(e Error) (count int) {
 // `retry.Error` can be used with that library.
 func (e Error) WrappedErrors() []error {
 	return e
+}
+
+type unrecoverableError struct {
+	error
+}
+
+// Unrecoverable wraps an error in `unrecoverableError` struct
+func Unrecoverable(err error) error {
+	return unrecoverableError{err}
+}
+
+// IsRecoverable checks if error is an instance of `unrecoverableError`
+func IsRecoverable(err error) bool {
+	_, isUnrecoverable := err.(unrecoverableError)
+	return !isUnrecoverable
+}
+
+func unpackUnrecoverable(err error) error {
+	if unrecoverable, isUnrecoverable := err.(unrecoverableError); isUnrecoverable {
+		return unrecoverable.error
+	}
+
+	return err
 }
