@@ -80,7 +80,7 @@ func TestDefaultSleep(t *testing.T) {
 	)
 	dur := time.Since(start)
 	assert.Error(t, err)
-	assert.True(t, dur > 10*time.Millisecond, "3 times default retry is longer then 10ms")
+	assert.True(t, dur > 300*time.Millisecond, "3 times default retry is longer then 300ms")
 }
 
 func TestFixedSleep(t *testing.T) {
