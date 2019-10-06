@@ -68,7 +68,7 @@ func TestRetryIf(t *testing.T) {
 #2: test
 #3: special`
 	assert.Equal(t, expectedErrorFormat, err.Error(), "retry error format")
-	assert.Equal(t, uint(3), retryCount, "right count of retry")
+	assert.Equal(t, uint(2), retryCount, "right count of retry")
 
 }
 
@@ -103,6 +103,7 @@ func TestLastErrorOnly(t *testing.T) {
 		Delay(time.Nanosecond),
 		LastErrorOnly(true),
 	)
+	assert.Error(t, err)
 	assert.Equal(t, "9", err.Error())
 }
 

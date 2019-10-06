@@ -97,12 +97,13 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 		err := retryableFunc()
 
 		if err != nil {
-			config.onRetry(n, err)
 			errorLog[n] = unpackUnrecoverable(err)
 
 			if !config.retryIf(err) {
 				break
 			}
+
+			config.onRetry(n, err)
 
 			// if this is last attempt - don't wait
 			if n == config.attempts-1 {
