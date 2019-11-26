@@ -91,13 +91,19 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 		opt(config)
 	}
 
-	errorLog := make(Error, config.attempts)
+	var errorLog Error
+	if !config.lastErrorOnly {
+		errorLog = make(Error, config.attempts)
+	} else {
+		errorLog = make(Error, 1)
+	}
 
+	lastErrIndex := n
 	for n < config.attempts {
 		err := retryableFunc()
 
 		if err != nil {
-			errorLog[n] = unpackUnrecoverable(err)
+			errorLog[lastErrIndex] = unpackUnrecoverable(err)
 
 			if !config.retryIf(err) {
 				break
@@ -117,10 +123,13 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 		}
 
 		n++
+		if !config.lastErrorOnly {
+			lastErrIndex = n
+		}
 	}
 
 	if config.lastErrorOnly {
-		return errorLog[n]
+		return errorLog[lastErrIndex]
 	}
 	return errorLog
 }
