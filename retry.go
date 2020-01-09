@@ -80,9 +80,10 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	config := &Config{
 		attempts:      10,
 		delay:         100 * time.Millisecond,
+		maxJitter:     100 * time.Millisecond,
 		onRetry:       func(n uint, err error) {},
 		retryIf:       IsRecoverable,
-		delayType:     BackOffDelay,
+		delayType:     CombineDelay(BackOffDelay, RandomDelay),
 		lastErrorOnly: false,
 	}
 

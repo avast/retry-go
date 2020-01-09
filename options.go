@@ -1,6 +1,7 @@
 package retry
 
 import (
+	"math/rand"
 	"time"
 )
 
@@ -16,6 +17,7 @@ type DelayTypeFunc func(n uint, config *Config) time.Duration
 type Config struct {
 	attempts      uint
 	delay         time.Duration
+	maxJitter     time.Duration
 	onRetry       OnRetryFunc
 	retryIf       RetryIfFunc
 	delayType     DelayTypeFunc
@@ -49,6 +51,13 @@ func Delay(delay time.Duration) Option {
 	}
 }
 
+// MaxJitter sets the maximum random Jitter between retries for RandomDelay
+func MaxJitter(maxJitter time.Duration) Option {
+	return func(c *Config) {
+		c.maxJitter = maxJitter
+	}
+}
+
 // DelayType set type of the delay between retries
 // default is BackOff
 func DelayType(delayType DelayTypeFunc) Option {
@@ -65,6 +74,22 @@ func BackOffDelay(n uint, config *Config) time.Duration {
 // FixedDelay is a DelayType which keeps delay the same through all iterations
 func FixedDelay(_ uint, config *Config) time.Duration {
 	return config.delay
+}
+
+// RandomDelay is a DelayType which picks a random delay up to config.maxJitter
+func RandomDelay(_ uint, config *Config) time.Duration {
+	return time.Duration(rand.Int63n(int64(config.maxJitter)))
+}
+
+// CombineDelay is a DelayType the combines all of the specified delays into a new DelayTypeFunc
+func CombineDelay(delays ...DelayTypeFunc) DelayTypeFunc {
+	return func(n uint, config *Config) time.Duration {
+		var total time.Duration
+		for _, delay := range delays {
+			total += delay(n, config)
+		}
+		return total
+	}
 }
 
 // OnRetry function callback are called each retry

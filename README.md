@@ -109,10 +109,17 @@ func IsRecoverable(err error) bool
 ```
 IsRecoverable checks if error is an instance of `unrecoverableError`
 
+#### func  RandomDelay
+
+```go
+func RandomDelay(_ uint, config *Config) time.Duration
+```
+RandomDelay is a DelayType which picks a random delay up to config.maxJitter
+
 #### func  Unrecoverable
 
 ```go
-func Unrecoverable(err error) unrecoverableError
+func Unrecoverable(err error) error
 ```
 Unrecoverable wraps an error in `unrecoverableError` struct
 
@@ -130,6 +137,14 @@ type Config struct {
 type DelayTypeFunc func(n uint, config *Config) time.Duration
 ```
 
+
+#### func  CombineDelay
+
+```go
+func CombineDelay(delays ...DelayTypeFunc) DelayTypeFunc
+```
+CombineDelay is a DelayType the combines all of the specified delays into a new
+DelayTypeFunc
 
 #### type Error
 
@@ -202,6 +217,13 @@ func LastErrorOnly(lastErrorOnly bool) Option
 return the direct last error that came from the retried function default is
 false (return wrapped errors with everything)
 
+#### func  MaxJitter
+
+```go
+func MaxJitter(maxJitter time.Duration) Option
+```
+MaxJitter sets the maximum random Jitter between retries for RandomDelay
+
 #### func  OnRetry
 
 ```go
@@ -242,7 +264,7 @@ skip retry if special error example:
     	})
     )
 
-The default RetryIf stops execution if the error is wrapped using
+By default RetryIf stops execution if the error is wrapped using
 `retry.Unrecoverable`, so above example may also be shortened to:
 
     retry.Do(
