@@ -121,3 +121,30 @@ func TestUnrecoverableError(t *testing.T) {
 	assert.Equal(t, expectedErr, err)
 	assert.Equal(t, 1, attempts, "unrecoverable error broke the loop")
 }
+
+func TestCombineFixedDelays(t *testing.T) {
+	start := time.Now()
+	err := Do(
+		func() error { return errors.New("test") },
+		Attempts(3),
+		DelayType(CombineDelay(FixedDelay, FixedDelay)),
+	)
+	dur := time.Since(start)
+	assert.Error(t, err)
+	assert.True(t, dur > 400*time.Millisecond, "3 times combined, fixed retry is longer then 400ms")
+	assert.True(t, dur < 500*time.Millisecond, "3 times combined, fixed retry is shorter then 500ms")
+}
+
+func TestRandomDelay(t *testing.T) {
+	start := time.Now()
+	err := Do(
+		func() error { return errors.New("test") },
+		Attempts(3),
+		DelayType(RandomDelay),
+		MaxJitter(50 * time.Millisecond),
+	)
+	dur := time.Since(start)
+	assert.Error(t, err)
+	assert.True(t, dur > 2*time.Millisecond, "3 times random retry is longer then 2ms")
+	assert.True(t, dur < 100*time.Millisecond, "3 times random retry is shorter then 100ms")
+}
