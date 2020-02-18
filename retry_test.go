@@ -141,10 +141,24 @@ func TestRandomDelay(t *testing.T) {
 		func() error { return errors.New("test") },
 		Attempts(3),
 		DelayType(RandomDelay),
-		MaxJitter(50 * time.Millisecond),
+		MaxJitter(50*time.Millisecond),
 	)
 	dur := time.Since(start)
 	assert.Error(t, err)
 	assert.True(t, dur > 2*time.Millisecond, "3 times random retry is longer then 2ms")
 	assert.True(t, dur < 100*time.Millisecond, "3 times random retry is shorter then 100ms")
+}
+
+func TestMaxDelay(t *testing.T) {
+	start := time.Now()
+	err := Do(
+		func() error { return errors.New("test") },
+		Attempts(5),
+		Delay(10*time.Millisecond),
+		MaxDelay(50*time.Millisecond),
+	)
+	dur := time.Since(start)
+	assert.Error(t, err)
+	assert.True(t, dur > 170*time.Millisecond, "5 times with maximum delay retry is longer than 70ms")
+	assert.True(t, dur < 200*time.Millisecond, "5 times with maximum delay retry is shorter than 200ms")
 }

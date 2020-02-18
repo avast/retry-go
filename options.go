@@ -17,6 +17,7 @@ type DelayTypeFunc func(n uint, config *Config) time.Duration
 type Config struct {
 	attempts      uint
 	delay         time.Duration
+	maxDelay      time.Duration
 	maxJitter     time.Duration
 	onRetry       OnRetryFunc
 	retryIf       RetryIfFunc
@@ -48,6 +49,14 @@ func Attempts(attempts uint) Option {
 func Delay(delay time.Duration) Option {
 	return func(c *Config) {
 		c.delay = delay
+	}
+}
+
+// MaxDelay set maximum delay between retry
+// does not apply by default
+func MaxDelay(maxDelay time.Duration) Option {
+	return func(c *Config) {
+		c.maxDelay = maxDelay
 	}
 }
 

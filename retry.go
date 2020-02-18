@@ -118,6 +118,9 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 			}
 
 			delayTime := config.delayType(n, config)
+			if config.maxDelay > 0 && delayTime > config.maxDelay {
+				delayTime = config.maxDelay
+			}
 			time.Sleep(delayTime)
 		} else {
 			return nil
