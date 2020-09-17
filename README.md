@@ -82,6 +82,18 @@ now implement via functions produces Options (aka `retry.OnRetry`)
 
 ## Usage
 
+```go
+var (
+	DefaultAttempts      = uint(10)
+	DefaultDelay         = 100 * time.Millisecond
+	DefaultMaxJitter     = 100 * time.Millisecond
+	DefaultOnRetry       = func(n uint, err error) {}
+	DefaultRetryIf       = IsRecoverable
+	DefaultDelayType     = CombineDelay(BackOffDelay, RandomDelay)
+	DefaultLastErrorOnly = false
+)
+```
+
 #### func  BackOffDelay
 
 ```go
@@ -216,6 +228,13 @@ func LastErrorOnly(lastErrorOnly bool) Option
 ```
 return the direct last error that came from the retried function default is
 false (return wrapped errors with everything)
+
+#### func  MaxDelay
+
+```go
+func MaxDelay(maxDelay time.Duration) Option
+```
+MaxDelay set maximum delay between retry does not apply by default
 
 #### func  MaxJitter
 

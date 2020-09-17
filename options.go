@@ -1,6 +1,7 @@
 package retry
 
 import (
+	"math"
 	"math/rand"
 	"time"
 )
@@ -17,11 +18,14 @@ type DelayTypeFunc func(n uint, config *Config) time.Duration
 type Config struct {
 	attempts      uint
 	delay         time.Duration
+	maxDelay      time.Duration
 	maxJitter     time.Duration
 	onRetry       OnRetryFunc
 	retryIf       RetryIfFunc
 	delayType     DelayTypeFunc
 	lastErrorOnly bool
+
+	maxBackOffN uint
 }
 
 // Option represents an option for retry.
@@ -51,6 +55,14 @@ func Delay(delay time.Duration) Option {
 	}
 }
 
+// MaxDelay set maximum delay between retry
+// does not apply by default
+func MaxDelay(maxDelay time.Duration) Option {
+	return func(c *Config) {
+		c.maxDelay = maxDelay
+	}
+}
+
 // MaxJitter sets the maximum random Jitter between retries for RandomDelay
 func MaxJitter(maxJitter time.Duration) Option {
 	return func(c *Config) {
@@ -68,7 +80,20 @@ func DelayType(delayType DelayTypeFunc) Option {
 
 // BackOffDelay is a DelayType which increases delay between consecutive retries
 func BackOffDelay(n uint, config *Config) time.Duration {
-	return config.delay * (1 << n)
+	// 1 << 63 would overflow signed int64 (time.Duration), thus 62.
+	const max uint = 62
+
+	if config.maxBackOffN == 0 {
+		if config.delay <= 0 {
+			config.delay = 1
+		}
+		config.maxBackOffN = max - uint(math.Floor(math.Log2(float64(config.delay))))
+	}
+
+	if n > config.maxBackOffN {
+		n = config.maxBackOffN
+	}
+	return config.delay << n
 }
 
 // FixedDelay is a DelayType which keeps delay the same through all iterations
@@ -83,12 +108,17 @@ func RandomDelay(_ uint, config *Config) time.Duration {
 
 // CombineDelay is a DelayType the combines all of the specified delays into a new DelayTypeFunc
 func CombineDelay(delays ...DelayTypeFunc) DelayTypeFunc {
+	const maxInt64 = uint64(math.MaxInt64)
+
 	return func(n uint, config *Config) time.Duration {
-		var total time.Duration
+		var total uint64
 		for _, delay := range delays {
-			total += delay(n, config)
+			total += uint64(delay(n, config))
+			if total > maxInt64 {
+				total = maxInt64
+			}
 		}
-		return total
+		return time.Duration(total)
 	}
 }
 

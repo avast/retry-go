@@ -73,18 +73,28 @@ import (
 // Function signature of retryable function
 type RetryableFunc func() error
 
+var (
+	DefaultAttempts      = uint(10)
+	DefaultDelay         = 100 * time.Millisecond
+	DefaultMaxJitter     = 100 * time.Millisecond
+	DefaultOnRetry       = func(n uint, err error) {}
+	DefaultRetryIf       = IsRecoverable
+	DefaultDelayType     = CombineDelay(BackOffDelay, RandomDelay)
+	DefaultLastErrorOnly = false
+)
+
 func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	var n uint
 
 	//default
 	config := &Config{
-		attempts:      10,
-		delay:         100 * time.Millisecond,
-		maxJitter:     100 * time.Millisecond,
-		onRetry:       func(n uint, err error) {},
-		retryIf:       IsRecoverable,
-		delayType:     CombineDelay(BackOffDelay, RandomDelay),
-		lastErrorOnly: false,
+		attempts:      DefaultAttempts,
+		delay:         DefaultDelay,
+		maxJitter:     DefaultMaxJitter,
+		onRetry:       DefaultOnRetry,
+		retryIf:       DefaultRetryIf,
+		delayType:     DefaultDelayType,
+		lastErrorOnly: DefaultLastErrorOnly,
 	}
 
 	//apply opts
@@ -118,6 +128,9 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 			}
 
 			delayTime := config.delayType(n, config)
+			if config.maxDelay > 0 && delayTime > config.maxDelay {
+				delayTime = config.maxDelay
+			}
 			time.Sleep(delayTime)
 		} else {
 			return nil

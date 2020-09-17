@@ -141,10 +141,122 @@ func TestRandomDelay(t *testing.T) {
 		func() error { return errors.New("test") },
 		Attempts(3),
 		DelayType(RandomDelay),
-		MaxJitter(50 * time.Millisecond),
+		MaxJitter(50*time.Millisecond),
 	)
 	dur := time.Since(start)
 	assert.Error(t, err)
 	assert.True(t, dur > 2*time.Millisecond, "3 times random retry is longer then 2ms")
 	assert.True(t, dur < 100*time.Millisecond, "3 times random retry is shorter then 100ms")
+}
+
+func TestMaxDelay(t *testing.T) {
+	start := time.Now()
+	err := Do(
+		func() error { return errors.New("test") },
+		Attempts(5),
+		Delay(10*time.Millisecond),
+		MaxDelay(50*time.Millisecond),
+	)
+	dur := time.Since(start)
+	assert.Error(t, err)
+	assert.True(t, dur > 170*time.Millisecond, "5 times with maximum delay retry is longer than 170ms")
+	assert.True(t, dur < 200*time.Millisecond, "5 times with maximum delay retry is shorter than 200ms")
+}
+
+func TestBackOffDelay(t *testing.T) {
+	for _, c := range []struct {
+		label         string
+		delay         time.Duration
+		expectedMaxN  uint
+		n             uint
+		expectedDelay time.Duration
+	}{
+		{
+			label:         "negative-delay",
+			delay:         -1,
+			expectedMaxN:  62,
+			n:             2,
+			expectedDelay: 4,
+		},
+		{
+			label:         "zero-delay",
+			delay:         0,
+			expectedMaxN:  62,
+			n:             65,
+			expectedDelay: 1 << 62,
+		},
+		{
+			label:         "one-second",
+			delay:         time.Second,
+			expectedMaxN:  33,
+			n:             62,
+			expectedDelay: time.Second << 33,
+		},
+	} {
+		t.Run(
+			c.label,
+			func(t *testing.T) {
+				config := Config{
+					delay: c.delay,
+				}
+				delay := BackOffDelay(c.n, &config)
+				assert.Equal(t, c.expectedMaxN, config.maxBackOffN, "max n mismatch")
+				assert.Equal(t, c.expectedDelay, delay, "delay duration mismatch")
+			},
+		)
+	}
+}
+
+func TestCombineDelay(t *testing.T) {
+	f := func(d time.Duration) DelayTypeFunc {
+		return func(_ uint, _ *Config) time.Duration {
+			return d
+		}
+	}
+	const max = time.Duration(1<<63 - 1)
+	for _, c := range []struct {
+		label    string
+		delays   []time.Duration
+		expected time.Duration
+	}{
+		{
+			label: "empty",
+		},
+		{
+			label: "single",
+			delays: []time.Duration{
+				time.Second,
+			},
+			expected: time.Second,
+		},
+		{
+			label: "negative",
+			delays: []time.Duration{
+				time.Second,
+				-time.Millisecond,
+			},
+			expected: time.Second - time.Millisecond,
+		},
+		{
+			label: "overflow",
+			delays: []time.Duration{
+				max,
+				time.Second,
+				time.Millisecond,
+			},
+			expected: max,
+		},
+	} {
+		t.Run(
+			c.label,
+			func(t *testing.T) {
+				funcs := make([]DelayTypeFunc, len(c.delays))
+				for i, d := range c.delays {
+					funcs[i] = f(d)
+				}
+				actual := CombineDelay(funcs...)(0, nil)
+				assert.Equal(t, c.expected, actual, "delay duration mismatch")
+			},
+		)
+	}
 }
