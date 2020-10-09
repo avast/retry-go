@@ -14,7 +14,7 @@ type RetryIfFunc func(error) bool
 // n = count of attempts
 type OnRetryFunc func(n uint, err error)
 
-type DelayTypeFunc func(n uint, config *Config) time.Duration
+type DelayTypeFunc func(n uint, err error, config *Config) time.Duration
 
 type Config struct {
 	attempts      uint
@@ -81,7 +81,7 @@ func DelayType(delayType DelayTypeFunc) Option {
 }
 
 // BackOffDelay is a DelayType which increases delay between consecutive retries
-func BackOffDelay(n uint, config *Config) time.Duration {
+func BackOffDelay(n uint, _ error, config *Config) time.Duration {
 	// 1 << 63 would overflow signed int64 (time.Duration), thus 62.
 	const max uint = 62
 
@@ -89,22 +89,24 @@ func BackOffDelay(n uint, config *Config) time.Duration {
 		if config.delay <= 0 {
 			config.delay = 1
 		}
+
 		config.maxBackOffN = max - uint(math.Floor(math.Log2(float64(config.delay))))
 	}
 
 	if n > config.maxBackOffN {
 		n = config.maxBackOffN
 	}
+
 	return config.delay << n
 }
 
 // FixedDelay is a DelayType which keeps delay the same through all iterations
-func FixedDelay(_ uint, config *Config) time.Duration {
+func FixedDelay(_ uint, _ error, config *Config) time.Duration {
 	return config.delay
 }
 
 // RandomDelay is a DelayType which picks a random delay up to config.maxJitter
-func RandomDelay(_ uint, config *Config) time.Duration {
+func RandomDelay(_ uint, _ error, config *Config) time.Duration {
 	return time.Duration(rand.Int63n(int64(config.maxJitter)))
 }
 
@@ -112,14 +114,15 @@ func RandomDelay(_ uint, config *Config) time.Duration {
 func CombineDelay(delays ...DelayTypeFunc) DelayTypeFunc {
 	const maxInt64 = uint64(math.MaxInt64)
 
-	return func(n uint, config *Config) time.Duration {
+	return func(n uint, err error, config *Config) time.Duration {
 		var total uint64
 		for _, delay := range delays {
-			total += uint64(delay(n, config))
+			total += uint64(delay(n, err, config))
 			if total > maxInt64 {
 				total = maxInt64
 			}
 		}
+
 		return time.Duration(total)
 	}
 }

@@ -29,7 +29,7 @@ func TestCustomRetryFunction(t *testing.T) {
 
 			return err
 		},
-		retry.DelayType(func(n uint, config *retry.Config) time.Duration {
+		retry.DelayType(func(n uint, _ error, config *retry.Config) time.Duration {
 			return 0
 		}),
 	)
