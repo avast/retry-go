@@ -176,7 +176,8 @@ func RetryIf(retryIf RetryIfFunc) Option {
 // Context allow to set context of retry
 // default are Background context
 //
-//	example of immediately cancellation (maybe it isn't the best example, but it describes behavior enough; I hope)
+// example of immediately cancellation (maybe it isn't the best example, but it describes behavior enough; I hope)
+//
 //	ctx, cancel := context.WithCancel(context.Background())
 //	cancel()
 //
