@@ -105,6 +105,10 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 		opt(config)
 	}
 
+	if err := config.context.Err(); err != nil {
+		return err
+	}
+
 	var errorLog Error
 	if !config.lastErrorOnly {
 		errorLog = make(Error, config.attempts)
@@ -138,6 +142,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 			select {
 			case <-time.After(delayTime):
 			case <-config.context.Done():
+				return config.context.Err()
 			}
 
 		} else {
