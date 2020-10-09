@@ -58,8 +58,9 @@ complicated interface.
 * [rafaeljesus/retry-go](https://github.com/rafaeljesus/retry-go) - looks good,
 slightly similar as this package, don't have 'simple' `Retry` method
 
-* [matryer/try](https://github.com/matryer/try) - very popular package,
-nonintuitive interface (for me)
+* [matryer/try](https://github.com/matryer/try) - popular package (probably second most popular), nonintuitive interface (for me)
+
+* [sethvargo/go-retry](https://github.com/sethvargo/go-retry) - popular package (probably third most popular), from my point of view, haven't a simple API as this module
 
 
 ### BREAKING CHANGES
