@@ -1,11 +1,11 @@
 package retry
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
-
-	"fmt"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -259,4 +259,17 @@ func TestCombineDelay(t *testing.T) {
 			},
 		)
 	}
+}
+
+func TestContext(t *testing.T) {
+	start := time.Now()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err := Do(
+		func() error { return errors.New("test") },
+		Context(ctx),
+	)
+	dur := time.Since(start)
+	assert.Error(t, err)
+	assert.True(t, dur < time.Millisecond, "immediately cancellation")
 }
