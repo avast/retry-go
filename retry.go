@@ -65,6 +65,7 @@ BREAKING CHANGES
 package retry
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -81,6 +82,7 @@ var (
 	DefaultRetryIf       = IsRecoverable
 	DefaultDelayType     = CombineDelay(BackOffDelay, RandomDelay)
 	DefaultLastErrorOnly = false
+	DefaultContext       = context.Background()
 )
 
 func Do(retryableFunc RetryableFunc, opts ...Option) error {
@@ -95,11 +97,16 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 		retryIf:       DefaultRetryIf,
 		delayType:     DefaultDelayType,
 		lastErrorOnly: DefaultLastErrorOnly,
+		context:       DefaultContext,
 	}
 
 	//apply opts
 	for _, opt := range opts {
 		opt(config)
+	}
+
+	if err := config.context.Err(); err != nil {
+		return err
 	}
 
 	var errorLog Error
@@ -131,7 +138,13 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 			if config.maxDelay > 0 && delayTime > config.maxDelay {
 				delayTime = config.maxDelay
 			}
-			time.Sleep(delayTime)
+
+			select {
+			case <-time.After(delayTime):
+			case <-config.context.Done():
+				return config.context.Err()
+			}
+
 		} else {
 			return nil
 		}

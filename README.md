@@ -58,9 +58,8 @@ complicated interface.
 * [rafaeljesus/retry-go](https://github.com/rafaeljesus/retry-go) - looks good,
 slightly similar as this package, don't have 'simple' `Retry` method
 
-* [matryer/try](https://github.com/matryer/try) - popular package (probably second most popular), nonintuitive interface (for me)
-
-* [sethvargo/go-retry](https://github.com/sethvargo/go-retry) - popular package (probably third most popular), from my point of view, haven't a simple API as this module
+* [matryer/try](https://github.com/matryer/try) - very popular package,
+nonintuitive interface (for me)
 
 
 ### BREAKING CHANGES
@@ -92,6 +91,7 @@ var (
 	DefaultRetryIf       = IsRecoverable
 	DefaultDelayType     = CombineDelay(BackOffDelay, RandomDelay)
 	DefaultLastErrorOnly = false
+	DefaultContext       = context.Background()
 )
 ```
 
@@ -207,6 +207,24 @@ Option represents an option for retry.
 func Attempts(attempts uint) Option
 ```
 Attempts set count of retry default is 10
+
+#### func  Context
+
+```go
+func Context(ctx context.Context) Option
+```
+Context allow to set context of retry default are Background context
+
+    example of immediately cancellation (maybe it isn't the best example, but it describes behavior enough; I hope)
+    ctx, cancel := context.WithCancel(context.Background())
+    cancel()
+
+    retry.Do(
+    	func() error {
+    		...
+    	},
+    	retry.Context(ctx),
+    )
 
 #### func  Delay
 

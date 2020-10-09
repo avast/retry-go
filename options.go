@@ -1,6 +1,7 @@
 package retry
 
 import (
+	"context"
 	"math"
 	"math/rand"
 	"time"
@@ -24,6 +25,7 @@ type Config struct {
 	retryIf       RetryIfFunc
 	delayType     DelayTypeFunc
 	lastErrorOnly bool
+	context       context.Context
 
 	maxBackOffN uint
 }
@@ -168,5 +170,24 @@ func OnRetry(onRetry OnRetryFunc) Option {
 func RetryIf(retryIf RetryIfFunc) Option {
 	return func(c *Config) {
 		c.retryIf = retryIf
+	}
+}
+
+// Context allow to set context of retry
+// default are Background context
+//
+//	example of immediately cancellation (maybe it isn't the best example, but it describes behavior enough; I hope)
+//	ctx, cancel := context.WithCancel(context.Background())
+//	cancel()
+//
+//	retry.Do(
+//		func() error {
+//			...
+//		},
+//		retry.Context(ctx),
+//	)
+func Context(ctx context.Context) Option {
+	return func(c *Config) {
+		c.context = ctx
 	}
 }

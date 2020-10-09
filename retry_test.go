@@ -1,11 +1,11 @@
 package retry
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
-
-	"fmt"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -259,4 +259,41 @@ func TestCombineDelay(t *testing.T) {
 			},
 		)
 	}
+}
+
+func TestContext(t *testing.T) {
+	t.Run("cancel before", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		retrySum := 0
+		start := time.Now()
+		err := Do(
+			func() error { return errors.New("test") },
+			OnRetry(func(n uint, err error) { retrySum += 1 }),
+			Context(ctx),
+		)
+		dur := time.Since(start)
+		assert.Error(t, err)
+		assert.True(t, dur < DefaultDelay, "immediately cancellation")
+		assert.Equal(t, 0, retrySum, "called at most once")
+	})
+
+	t.Run("cancel in retry progress", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+
+		retrySum := 0
+		err := Do(
+			func() error { return errors.New("test") },
+			OnRetry(func(n uint, err error) {
+				retrySum += 1
+				if retrySum > 1 {
+					cancel()
+				}
+			}),
+			Context(ctx),
+		)
+		assert.Error(t, err)
+		assert.Equal(t, 2, retrySum, "called at most once")
+	})
 }
