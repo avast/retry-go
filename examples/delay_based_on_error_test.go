@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -14,48 +14,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestParseRetryAfter(t *testing.T) {
-	retryAfter, err := ParseRetryAfter("xyz")
-	assert.Error(t, err)
-
-	retryAfter, err = ParseRetryAfter("")
-	assert.Error(t, err)
-
-	testDur := 120 * time.Second
-
-	retryAfter, err = ParseRetryAfter("120")
-	assert.NoError(t, err)
-	assert.Equal(t, testDur, retryAfter, "time in seconds")
-
-	retryAfter, err = ParseRetryAfter(time.Now().Add(testDur).Format(time.RFC850))
-	assert.NoError(t, err)
-	assert.True(t, retryAfter > (115*time.Second), "time in seconds are ~120")
-	t.Log(retryAfter)
-}
-
-func ParseRetryAfter(ra string) (time.Duration, error) {
-	if ra == "" {
-		return 0, fmt.Errorf("Retry-After header was empty")
-	}
-
-	t, errParse := http.ParseTime(ra)
-	if errParse != nil {
-		if sec, errParse := strconv.Atoi(ra); errParse == nil {
-			return time.Duration(sec) * time.Second, nil
-		}
-	} else {
-		return t.Sub(time.Now()), nil
-	}
-
-	return 0, fmt.Errorf("Invalid Retr-After format %s", ra)
-}
-
 type RetryAfterError struct {
 	response http.Response
 }
 
 func (err RetryAfterError) Error() string {
-	return fmt.Sprintf("Request to %s fail %s (%d)", err.response.Request.RequestURI, err.response.Status, err.response.StatusCode)
+	return fmt.Sprintf(
+		"Request to %s fail %s (%d)",
+		err.response.Request.RequestURI,
+		err.response.Status,
+		err.response.StatusCode,
+	)
 }
 
 type SomeOtherError struct {
@@ -68,12 +37,16 @@ func (err SomeOtherError) Error() string {
 }
 
 func TestCustomRetryFunctionBasedOnKindOfError(t *testing.T) {
-	url := "http://example.com"
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "hello")
+	}))
+	defer ts.Close()
+
 	var body []byte
 
 	err := retry.Do(
 		func() error {
-			resp, err := http.Get(url)
+			resp, err := http.Get(ts.URL)
 
 			if err == nil {
 				defer func() {
@@ -87,14 +60,12 @@ func TestCustomRetryFunctionBasedOnKindOfError(t *testing.T) {
 			return err
 		},
 		retry.DelayType(func(n uint, err error, config *retry.Config) time.Duration {
-			switch err.(type) {
+			switch e := err.(type) {
 			case RetryAfterError:
-				e := err.(RetryAfterError)
-				if dur, err := ParseRetryAfter(e.response.Header.Get("Retry-After")); err == nil {
-					return dur
+				if t, err := parseRetryAfter(e.response.Header.Get("Retry-After")); err == nil {
+					return time.Until(t)
 				}
 			case SomeOtherError:
-				e := err.(SomeOtherError)
 				return e.retryAfter
 			}
 
@@ -105,4 +76,9 @@ func TestCustomRetryFunctionBasedOnKindOfError(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, body)
+}
+
+// use https://github.com/aereal/go-httpretryafter instead
+func parseRetryAfter(_ string) (time.Time, error) {
+	return time.Now().Add(1 * time.Second), nil
 }
