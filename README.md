@@ -61,13 +61,9 @@ slightly similar as this package, don't have 'simple' `Retry` method
 * [matryer/try](https://github.com/matryer/try) - very popular package,
 nonintuitive interface (for me)
 
-BREAKING CHANGES 3.0.0 * `DelayTypeFunc` have a new parameter `err` - this
-breaking change affects only your custom Delay Functions (if you some have, then
-change your custom functions to `(n uint, _ error, config *Config)
-time.Duration` and everything will be fine)
-
-this change allow [make delay functions based on
-error](examples/delay_based_on_error_test.go)
+BREAKING CHANGES 3.0.0 * `DelayTypeFunc` accepts a new parameter `err` - this
+breaking change affects only your custom Delay Functions. This change allow
+[make delay functions based on error](examples/delay_based_on_error_test.go).
 
 1.0.2 -> 2.0.0
 
@@ -155,6 +151,8 @@ type Config struct {
 type DelayTypeFunc func(n uint, err error, config *Config) time.Duration
 ```
 
+DelayTypeFunc is called to return the next delay to wait after the retriable
+function fails on `err` after `n` attempts.
 
 #### func  CombineDelay
 
