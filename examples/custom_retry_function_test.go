@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -12,9 +13,34 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// RetriableError is a custom error that contains a positive duration for the next retry
+type RetriableError struct {
+	Err        error
+	RetryAfter time.Duration
+}
+
+// Error returns error message and a Retry-After duration
+func (e *RetriableError) Error() string {
+	return fmt.Sprintf("%s (retry after %v)", e.Err.Error(), e.RetryAfter)
+}
+
+var _ error = (*RetriableError)(nil)
+
+// TestCustomRetryFunction shows how to use a custom retry function
 func TestCustomRetryFunction(t *testing.T) {
+	attempts := 5 // server succeeds after 5 attempts
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "hello")
+		if attempts > 0 {
+			// inform the client to retry after one second using standard
+			// HTTP 429 status code with Retry-After header in seconds
+			w.Header().Add("Retry-After", "1")
+			w.WriteHeader(http.StatusTooManyRequests)
+			w.Write([]byte("Server limit reached"))
+			attempts--
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("hello"))
 	}))
 	defer ts.Close()
 
@@ -31,15 +57,41 @@ func TestCustomRetryFunction(t *testing.T) {
 					}
 				}()
 				body, err = ioutil.ReadAll(resp.Body)
+				if resp.StatusCode != 200 {
+					err = fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+					if resp.StatusCode == http.StatusTooManyRequests {
+						// check Retry-After header if it contains seconds to wait for the next retry
+						if retryAfter, e := strconv.ParseInt(resp.Header.Get("Retry-After"), 10, 32); e == nil {
+							// the server returns 0 to inform that the operation cannot be retried
+							if retryAfter <= 0 {
+								return retry.Unrecoverable(err)
+							}
+							return &RetriableError{
+								Err:        err,
+								RetryAfter: time.Duration(retryAfter) * time.Second,
+							}
+						}
+						// A real implementation should also try to http.Parse the retryAfter response header
+						// to conform with HTTP specification. Herein we know here that we return only seconds.
+					}
+				}
 			}
 
 			return err
 		},
-		retry.DelayType(func(n uint, _ error, config *retry.Config) time.Duration {
-			return 0
+		retry.DelayType(func(n uint, err error, config *retry.Config) time.Duration {
+			fmt.Println("Server fails with: " + err.Error())
+			if retriable, ok := err.(*RetriableError); ok {
+				fmt.Printf("Client follows server recommendation to retry after %v\n", retriable.RetryAfter)
+				return retriable.RetryAfter
+			}
+			// apply a default exponential back off strategy
+			return retry.BackOffDelay(n, err, config)
 		}),
 	)
 
+	fmt.Println("Server responds with: " + string(body))
+
 	assert.NoError(t, err)
-	assert.NotEmpty(t, body)
+	assert.Equal(t, "hello", string(body))
 }
