@@ -44,6 +44,9 @@ SEE ALSO
 * [matryer/try](https://github.com/matryer/try) - very popular package, nonintuitive interface (for me)
 
 BREAKING CHANGES
+3.0.0
+* `DelayTypeFunc` accepts a new parameter `err` - this breaking change affects only your custom Delay Functions. This change allow [make delay functions based on error](examples/delay_based_on_error_test.go).
+
 
 1.0.2 -> 2.0.0
 
@@ -134,7 +137,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 				break
 			}
 
-			delayTime := config.delayType(n, config)
+			delayTime := config.delayType(n, err, config)
 			if config.maxDelay > 0 && delayTime > config.maxDelay {
 				delayTime = config.maxDelay
 			}

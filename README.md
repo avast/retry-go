@@ -61,8 +61,9 @@ slightly similar as this package, don't have 'simple' `Retry` method
 * [matryer/try](https://github.com/matryer/try) - very popular package,
 nonintuitive interface (for me)
 
-
-### BREAKING CHANGES
+BREAKING CHANGES 3.0.0 * `DelayTypeFunc` accepts a new parameter `err` - this
+breaking change affects only your custom Delay Functions. This change allow
+[make delay functions based on error](examples/delay_based_on_error_test.go).
 
 1.0.2 -> 2.0.0
 
@@ -98,7 +99,7 @@ var (
 #### func  BackOffDelay
 
 ```go
-func BackOffDelay(n uint, config *Config) time.Duration
+func BackOffDelay(n uint, _ error, config *Config) time.Duration
 ```
 BackOffDelay is a DelayType which increases delay between consecutive retries
 
@@ -111,7 +112,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error
 #### func  FixedDelay
 
 ```go
-func FixedDelay(_ uint, config *Config) time.Duration
+func FixedDelay(_ uint, _ error, config *Config) time.Duration
 ```
 FixedDelay is a DelayType which keeps delay the same through all iterations
 
@@ -125,7 +126,7 @@ IsRecoverable checks if error is an instance of `unrecoverableError`
 #### func  RandomDelay
 
 ```go
-func RandomDelay(_ uint, config *Config) time.Duration
+func RandomDelay(_ uint, _ error, config *Config) time.Duration
 ```
 RandomDelay is a DelayType which picks a random delay up to config.maxJitter
 
@@ -147,9 +148,11 @@ type Config struct {
 #### type DelayTypeFunc
 
 ```go
-type DelayTypeFunc func(n uint, config *Config) time.Duration
+type DelayTypeFunc func(n uint, err error, config *Config) time.Duration
 ```
 
+DelayTypeFunc is called to return the next delay to wait after the retriable
+function fails on `err` after `n` attempts.
 
 #### func  CombineDelay
 

@@ -1,8 +1,10 @@
 package retry_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/avast/retry-go"
@@ -10,12 +12,16 @@ import (
 )
 
 func TestGet(t *testing.T) {
-	url := "http://example.com"
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "hello")
+	}))
+	defer ts.Close()
+
 	var body []byte
 
 	err := retry.Do(
 		func() error {
-			resp, err := http.Get(url)
+			resp, err := http.Get(ts.URL)
 
 			if err == nil {
 				defer func() {

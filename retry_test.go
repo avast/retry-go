@@ -199,7 +199,7 @@ func TestBackOffDelay(t *testing.T) {
 				config := Config{
 					delay: c.delay,
 				}
-				delay := BackOffDelay(c.n, &config)
+				delay := BackOffDelay(c.n, nil, &config)
 				assert.Equal(t, c.expectedMaxN, config.maxBackOffN, "max n mismatch")
 				assert.Equal(t, c.expectedDelay, delay, "delay duration mismatch")
 			},
@@ -209,7 +209,7 @@ func TestBackOffDelay(t *testing.T) {
 
 func TestCombineDelay(t *testing.T) {
 	f := func(d time.Duration) DelayTypeFunc {
-		return func(_ uint, _ *Config) time.Duration {
+		return func(_ uint, _ error, _ *Config) time.Duration {
 			return d
 		}
 	}
@@ -254,7 +254,7 @@ func TestCombineDelay(t *testing.T) {
 				for i, d := range c.delays {
 					funcs[i] = f(d)
 				}
-				actual := CombineDelay(funcs...)(0, nil)
+				actual := CombineDelay(funcs...)(0, nil, nil)
 				assert.Equal(t, c.expected, actual, "delay duration mismatch")
 			},
 		)
