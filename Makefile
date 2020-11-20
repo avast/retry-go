@@ -1,37 +1,30 @@
 SOURCE_FILES?=$$(go list ./... | grep -v /vendor/)
 TEST_PATTERN?=.
 TEST_OPTIONS?=
-DEP?=$$(which dep)
 VERSION?=$$(cat VERSION)
 LINTER?=$$(which golangci-lint)
 LINTER_VERSION=1.15.0
 
 ifeq ($(OS),Windows_NT)
-	DEP_VERS=dep-windows-amd64
 	LINTER_FILE=golangci-lint-$(LINTER_VERSION)-windows-amd64.zip
 	LINTER_UNPACK= >| app.zip; unzip -j app.zip -d $$GOPATH/bin; rm app.zip
 else ifeq ($(OS), Darwin)
 	LINTER_FILE=golangci-lint-$(LINTER_VERSION)-darwin-amd64.tar.gz
 	LINTER_UNPACK= | tar xzf - -C $$GOPATH/bin --wildcards --strip 1 "**/golangci-lint"
 else
-	DEP_VERS=dep-linux-amd64
 	LINTER_FILE=golangci-lint-$(LINTER_VERSION)-linux-amd64.tar.gz
 	LINTER_UNPACK= | tar xzf - -C $$GOPATH/bin --wildcards --strip 1 "**/golangci-lint"
 endif
 
 setup:
-	go get -u github.com/pierrre/gotestcover
-	go get -u golang.org/x/tools/cmd/cover
-	go get -u github.com/robertkrimen/godocdown/godocdown
+	GO111MODULE=off go get -u github.com/pierrre/gotestcover
+	GO111MODULE=off go get -u golang.org/x/tools/cmd/cover
+	GO111MODULE=off go get -u github.com/robertkrimen/godocdown/godocdown
 	@if [ "$(LINTER)" = "" ]; then\
 		curl -L https://github.com/golangci/golangci-lint/releases/download/v$(LINTER_VERSION)/$(LINTER_FILE) $(LINTER_UNPACK) ;\
 		chmod +x $$GOPATH/bin/golangci-lint;\
 	fi
-	@if [ "$(DEP)" = "" ]; then\
-		curl -L https://github.com/golang/dep/releases/download/v0.3.1/$(DEP_VERS) >| $$GOPATH/bin/dep;\
-		chmod +x $$GOPATH/bin/dep;\
-	fi
-	dep ensure
+	go mod download
 
 generate: ## Generate README.md
 	godocdown >| README.md
