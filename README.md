@@ -88,19 +88,6 @@ now implement via functions produces Options (aka `retry.OnRetry`)
 
 ## Usage
 
-```go
-var (
-	DefaultAttempts      = uint(10)
-	DefaultDelay         = 100 * time.Millisecond
-	DefaultMaxJitter     = 100 * time.Millisecond
-	DefaultOnRetry       = func(n uint, err error) {}
-	DefaultRetryIf       = IsRecoverable
-	DefaultDelayType     = CombineDelay(BackOffDelay, RandomDelay)
-	DefaultLastErrorOnly = false
-	DefaultContext       = context.Background()
-)
-```
-
 #### func  BackOffDelay
 
 ```go

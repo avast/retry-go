@@ -262,6 +262,7 @@ func TestCombineDelay(t *testing.T) {
 }
 
 func TestContext(t *testing.T) {
+	const defaultDelay = 100 * time.Millisecond
 	t.Run("cancel before", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
@@ -275,7 +276,7 @@ func TestContext(t *testing.T) {
 		)
 		dur := time.Since(start)
 		assert.Error(t, err)
-		assert.True(t, dur < DefaultDelay, "immediately cancellation")
+		assert.True(t, dur < defaultDelay, "immediately cancellation")
 		assert.Equal(t, 0, retrySum, "called at most once")
 	})
 
