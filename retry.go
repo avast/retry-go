@@ -84,7 +84,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	var n uint
 
 	//default
-	config := newWithDefaults()
+	config := newDefaultRetryConfig()
 
 	//apply opts
 	for _, opt := range opts {
@@ -147,7 +147,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	return errorLog
 }
 
-func newWithDefaults() *Config {
+func newDefaultRetryConfig() *Config {
 	return &Config{
 		attempts:      uint(10),
 		delay:         100 * time.Millisecond,
