@@ -80,31 +80,11 @@ import (
 // Function signature of retryable function
 type RetryableFunc func() error
 
-var (
-	DefaultAttempts      = uint(10)
-	DefaultDelay         = 100 * time.Millisecond
-	DefaultMaxJitter     = 100 * time.Millisecond
-	DefaultOnRetry       = func(n uint, err error) {}
-	DefaultRetryIf       = IsRecoverable
-	DefaultDelayType     = CombineDelay(BackOffDelay, RandomDelay)
-	DefaultLastErrorOnly = false
-	DefaultContext       = context.Background()
-)
-
 func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	var n uint
 
 	//default
-	config := &Config{
-		attempts:      DefaultAttempts,
-		delay:         DefaultDelay,
-		maxJitter:     DefaultMaxJitter,
-		onRetry:       DefaultOnRetry,
-		retryIf:       DefaultRetryIf,
-		delayType:     DefaultDelayType,
-		lastErrorOnly: DefaultLastErrorOnly,
-		context:       DefaultContext,
-	}
+	config := newDefaultRetryConfig()
 
 	//apply opts
 	for _, opt := range opts {
@@ -165,6 +145,19 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 		return errorLog[lastErrIndex]
 	}
 	return errorLog
+}
+
+func newDefaultRetryConfig() *Config {
+	return &Config{
+		attempts:      uint(10),
+		delay:         100 * time.Millisecond,
+		maxJitter:     100 * time.Millisecond,
+		onRetry:       func(n uint, err error) {},
+		retryIf:       IsRecoverable,
+		delayType:     CombineDelay(BackOffDelay, RandomDelay),
+		lastErrorOnly: false,
+		context:       context.Background(),
+	}
 }
 
 // Error type represents list of errors in retry
