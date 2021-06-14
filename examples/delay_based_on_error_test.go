@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/avast/retry-go"
+	"github.com/avast/retry-go/v3"
 	"github.com/stretchr/testify/assert"
 )
 
