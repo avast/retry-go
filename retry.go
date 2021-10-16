@@ -95,6 +95,14 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 		return err
 	}
 
+	// Setting attempts to 0 means we'll retry until we succeed
+	if config.attempts == 0 {
+		for err := retryableFunc(); err != nil; err = retryableFunc() {
+		}
+
+		return nil
+	}
+
 	var errorLog Error
 	if !config.lastErrorOnly {
 		errorLog = make(Error, config.attempts)
