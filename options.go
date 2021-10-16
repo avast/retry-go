@@ -42,7 +42,7 @@ func LastErrorOnly(lastErrorOnly bool) Option {
 	}
 }
 
-// Attempts set count of retry
+// Attempts set count of retry. Setting to 0 will retry until the retried function succeeds.
 // default is 10
 func Attempts(attempts uint) Option {
 	return func(c *Config) {

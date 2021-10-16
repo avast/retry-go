@@ -201,7 +201,8 @@ Option represents an option for retry.
 ```go
 func Attempts(attempts uint) Option
 ```
-Attempts set count of retry default is 10
+Attempts set count of retry. Setting to 0 will retry until the retried function
+succeeds. default is 10
 
 #### func  Context
 
