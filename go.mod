@@ -1,4 +1,4 @@
-module github.com/avast/retry-go/v3
+module github.com/avast/retry-go/v4
 
 go 1.13
 
