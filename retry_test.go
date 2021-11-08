@@ -72,6 +72,40 @@ func TestRetryIf(t *testing.T) {
 
 }
 
+func TestZeroAttemptsWithError(t *testing.T) {
+	const maxErrors = 999
+	count := 0
+
+	Do(
+		func() error {
+			if count < maxErrors {
+				count += 1
+				return errors.New("test")
+			}
+
+			return nil
+		},
+		Attempts(0),
+	)
+
+	assert.Equal(t, count, maxErrors)
+}
+
+func TestZeroAttemptsWithoutError(t *testing.T) {
+	count := 0
+
+	Do(
+		func() error {
+			count++
+
+			return nil
+		},
+		Attempts(0),
+	)
+
+	assert.Equal(t, count, 1)
+}
+
 func TestDefaultSleep(t *testing.T) {
 	start := time.Now()
 	err := Do(
