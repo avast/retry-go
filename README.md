@@ -64,27 +64,24 @@ nonintuitive interface (for me)
 
 ### BREAKING CHANGES
 
-3.0.0
+* 4.0.0
 
-* `DelayTypeFunc` accepts a new parameter `err` - this breaking change affects
-only your custom Delay Functions. This change allow [make delay functions based
-on error](examples/delay_based_on_error_test.go).
+    * infinity retry is possible by set `Attempts(0)` by PR [#49](https://github.com/avast/retry-go/pull/49)
 
-1.0.2 -> 2.0.0
+* 3.0.0
 
-* argument of `retry.Delay` is final delay (no multiplication by `retry.Units`
-anymore)
+    * `DelayTypeFunc` accepts a new parameter `err` - this breaking change affects only your custom Delay Functions. This change allow [make delay functions based on error](examples/delay_based_on_error_test.go).
 
-* function `retry.Units` are removed
+* 1.0.2 -> 2.0.0
 
-* [more about this breaking change](https://github.com/avast/retry-go/issues/7)
+    * argument of `retry.Delay` is final delay (no multiplication by `retry.Units` anymore)
+    * function `retry.Units` are removed
+    * [more about this breaking change](https://github.com/avast/retry-go/issues/7)
 
-0.3.0 -> 1.0.0
+* 0.3.0 -> 1.0.0
 
-* `retry.Retry` function are changed to `retry.Do` function
-
-* `retry.RetryCustom` (OnRetry) and `retry.RetryCustomWithOpts` functions are
-now implement via functions produces Options (aka `retry.OnRetry`)
+    * `retry.Retry` function are changed to `retry.Do` function
+    * `retry.RetryCustom` (OnRetry) and `retry.RetryCustomWithOpts` functions are now implement via functions produces Options (aka `retry.OnRetry`)
 
 ## Usage
 
