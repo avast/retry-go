@@ -329,6 +329,31 @@ func TestContext(t *testing.T) {
 			Context(ctx),
 		)
 		assert.Error(t, err)
+
+		expectedErrorFormat := `All attempts fail:
+#1: test
+#2: context canceled`
+		assert.Equal(t, expectedErrorFormat, err.Error(), "retry error format")
+		assert.Equal(t, 2, retrySum, "called at most once")
+	})
+
+	t.Run("cancel in retry progress - last error only", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+
+		retrySum := 0
+		err := Do(
+			func() error { return errors.New("test") },
+			OnRetry(func(n uint, err error) {
+				retrySum += 1
+				if retrySum > 1 {
+					cancel()
+				}
+			}),
+			Context(ctx),
+			LastErrorOnly(true),
+		)
+		assert.Equal(t, context.Canceled, err)
+
 		assert.Equal(t, 2, retrySum, "called at most once")
 	})
 }
