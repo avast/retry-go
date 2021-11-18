@@ -128,7 +128,11 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 			select {
 			case <-time.After(delayTime):
 			case <-config.context.Done():
-				return config.context.Err()
+				if config.lastErrorOnly {
+					return config.context.Err()
+				}
+				errorLog[n] = config.context.Err()
+				return errorLog
 			}
 
 		} else {
