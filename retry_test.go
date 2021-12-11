@@ -76,7 +76,7 @@ func TestZeroAttemptsWithError(t *testing.T) {
 	const maxErrors = 999
 	count := 0
 
-	Do(
+	err := Do(
 		func() error {
 			if count < maxErrors {
 				count += 1
@@ -87,6 +87,7 @@ func TestZeroAttemptsWithError(t *testing.T) {
 		},
 		Attempts(0),
 	)
+	assert.NoError(t, err)
 
 	assert.Equal(t, count, maxErrors)
 }
@@ -94,7 +95,7 @@ func TestZeroAttemptsWithError(t *testing.T) {
 func TestZeroAttemptsWithoutError(t *testing.T) {
 	count := 0
 
-	Do(
+	err := Do(
 		func() error {
 			count++
 
@@ -102,6 +103,7 @@ func TestZeroAttemptsWithoutError(t *testing.T) {
 		},
 		Attempts(0),
 	)
+	assert.NoError(t, err)
 
 	assert.Equal(t, count, 1)
 }
