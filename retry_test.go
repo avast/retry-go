@@ -86,6 +86,7 @@ func TestZeroAttemptsWithError(t *testing.T) {
 			return nil
 		},
 		Attempts(0),
+		MaxDelay(time.Nanosecond),
 	)
 	assert.NoError(t, err)
 
@@ -195,8 +196,8 @@ func TestMaxDelay(t *testing.T) {
 	)
 	dur := time.Since(start)
 	assert.Error(t, err)
-	assert.True(t, dur > 170*time.Millisecond, "5 times with maximum delay retry is longer than 170ms")
-	assert.True(t, dur < 200*time.Millisecond, "5 times with maximum delay retry is shorter than 200ms")
+	assert.True(t, dur > 120*time.Millisecond, "5 times with maximum delay retry is longer than 120ms")
+	assert.True(t, dur < 205*time.Millisecond, "5 times with maximum delay retry is shorter than 205ms")
 }
 
 func TestBackOffDelay(t *testing.T) {
