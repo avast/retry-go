@@ -75,10 +75,10 @@ type RetryableFunc func() error
 func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	var n uint
 
-	//default
+	// default
 	config := newDefaultRetryConfig()
 
-	//apply opts
+	// apply opts
 	for _, opt := range opts {
 		opt(config)
 	}
@@ -90,6 +90,8 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	// Setting attempts to 0 means we'll retry until we succeed
 	if config.attempts == 0 {
 		for err := retryableFunc(); err != nil; err = retryableFunc() {
+			n++
+			<-time.After(delay(config, n, err))
 		}
 
 		return nil
@@ -120,13 +122,8 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 				break
 			}
 
-			delayTime := config.delayType(n, err, config)
-			if config.maxDelay > 0 && delayTime > config.maxDelay {
-				delayTime = config.maxDelay
-			}
-
 			select {
-			case <-time.After(delayTime):
+			case <-time.After(delay(config, n, err)):
 			case <-config.context.Done():
 				if config.lastErrorOnly {
 					return config.context.Err()
@@ -219,4 +216,13 @@ func unpackUnrecoverable(err error) error {
 	}
 
 	return err
+}
+
+func delay(config *Config, n uint, err error) time.Duration {
+	delayTime := config.delayType(n, err, config)
+	if config.maxDelay > 0 && delayTime > config.maxDelay {
+		delayTime = config.maxDelay
+	}
+
+	return delayTime
 }
