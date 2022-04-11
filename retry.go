@@ -91,6 +91,9 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	if config.attempts == 0 {
 		for err := retryableFunc(); err != nil; err = retryableFunc() {
 			n++
+
+			config.onRetry(n, err)
+
 			<-time.After(delay(config, n, err))
 		}
 
