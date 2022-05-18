@@ -202,6 +202,10 @@ type unrecoverableError struct {
 	error
 }
 
+func (e unrecoverableError) Unwrap() error {
+	return e.error
+}
+
 // Unrecoverable wraps an error in `unrecoverableError` struct
 func Unrecoverable(err error) error {
 	return unrecoverableError{err}
