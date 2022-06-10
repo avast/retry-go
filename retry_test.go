@@ -399,3 +399,26 @@ func TestContext(t *testing.T) {
 
 	})
 }
+
+type testTimer struct {
+	called bool
+}
+
+func (t *testTimer) After(d time.Duration) <-chan time.Time {
+	t.called = true
+	return time.After(d)
+}
+
+func TestTimerInterface(t *testing.T) {
+	var timer testTimer
+	err := Do(
+		func() error { return errors.New("test") },
+		Attempts(1),
+		Delay(10*time.Millisecond),
+		MaxDelay(50*time.Millisecond),
+		WithTimer(&timer),
+	)
+
+	assert.Error(t, err)
+
+}

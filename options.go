@@ -17,6 +17,11 @@ type OnRetryFunc func(n uint, err error)
 // DelayTypeFunc is called to return the next delay to wait after the retriable function fails on `err` after `n` attempts.
 type DelayTypeFunc func(n uint, err error, config *Config) time.Duration
 
+// Timer represents the timer used to track time for a retry.
+type Timer interface {
+	After(time.Duration) <-chan time.Time
+}
+
 type Config struct {
 	attempts      uint
 	delay         time.Duration
@@ -27,6 +32,7 @@ type Config struct {
 	delayType     DelayTypeFunc
 	lastErrorOnly bool
 	context       context.Context
+	timer         Timer
 
 	maxBackOffN uint
 }
@@ -205,5 +211,29 @@ func RetryIf(retryIf RetryIfFunc) Option {
 func Context(ctx context.Context) Option {
 	return func(c *Config) {
 		c.context = ctx
+	}
+}
+
+// WithTimer provides a way to swap out timer module implementations.
+// This primarily is useful for mocking/testing, where you may not want to explicitly wait for a set duration
+// for retries.
+//
+// example of augmenting time.After with a print statement
+//
+// type struct MyTimer {}
+// func (t *MyTimer) After(d time.Duration) <- chan time.Time {
+//     fmt.Print("Timer called!")
+//     return time.After(d)
+// }
+//
+//
+// retry.Do(
+//     func() error { ... },
+//	   retry.WithTimer(&MyTimer{})
+// )
+//
+func WithTimer(t Timer) Option {
+	return func(c *Config) {
+		c.timer = t
 	}
 }

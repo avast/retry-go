@@ -72,6 +72,13 @@ import (
 // Function signature of retryable function
 type RetryableFunc func() error
 
+// Default timer is a wrapper around time.After
+type timerImpl struct{}
+
+func (t *timerImpl) After(d time.Duration) <-chan time.Time {
+	return time.After(d)
+}
+
 func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	var n uint
 
@@ -129,7 +136,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 			}
 
 			select {
-			case <-time.After(delay(config, n, err)):
+			case <-config.timer.After(delay(config, n, err)):
 			case <-config.context.Done():
 				if config.lastErrorOnly {
 					return config.context.Err()
@@ -164,6 +171,7 @@ func newDefaultRetryConfig() *Config {
 		delayType:     CombineDelay(BackOffDelay, RandomDelay),
 		lastErrorOnly: false,
 		context:       context.Background(),
+		timer:         &timerImpl{},
 	}
 }
 
