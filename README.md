@@ -159,6 +159,12 @@ type Error []error
 
 Error type represents list of errors in retry
 
+#### func (Error) As
+
+```go
+func (e Error) As(target interface{}) bool
+```
+
 #### func (Error) Error
 
 ```go
@@ -166,6 +172,12 @@ func (e Error) Error() string
 ```
 Error method return string representation of Error It is an implementation of
 error interface
+
+#### func (Error) Is
+
+```go
+func (e Error) Is(target error) bool
+```
 
 #### func (Error) WrappedErrors
 
@@ -306,6 +318,32 @@ By default RetryIf stops execution if the error is wrapped using
     	}
     )
 
+#### func  WithTimer
+
+```go
+func WithTimer(t Timer) Option
+```
+WithTimer provides a way to swap out timer module implementations. This
+primarily is useful for mocking/testing, where you may not want to explicitly
+wait for a set duration for retries.
+
+example of augmenting time.After with a print statement
+
+type struct MyTimer {} func (t *MyTimer) After(d time.Duration) <- chan
+time.Time {
+
+    fmt.Print("Timer called!")
+    return time.After(d)
+
+}
+
+retry.Do(
+
+        func() error { ... },
+    	   retry.WithTimer(&MyTimer{})
+
+)
+
 #### type RetryIfFunc
 
 ```go
@@ -322,6 +360,16 @@ type RetryableFunc func() error
 
 Function signature of retryable function
 
+#### type Timer
+
+```go
+type Timer interface {
+	After(time.Duration) <-chan time.Time
+}
+```
+
+Timer represents the timer used to track time for a retry.
+
 ## Contributing
 
 Contributions are very much welcome.
@@ -333,6 +381,8 @@ Makefile provides several handy rules, like README.md `generator` , `setup` for 
 Try `make help` for more information.
 
 ### Before pull request
+
+> maybe you need `make setup` in order to setup environment 
 
 please try:
 * run tests (`make test`)

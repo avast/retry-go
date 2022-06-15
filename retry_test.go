@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -421,4 +422,41 @@ func TestTimerInterface(t *testing.T) {
 
 	assert.Error(t, err)
 
+}
+
+func TestErrorIs(t *testing.T) {
+	var e Error
+	expectErr := errors.New("error")
+	closedErr := os.ErrClosed
+	e = append(e, expectErr)
+	e = append(e, closedErr)
+
+	assert.True(t, errors.Is(e, expectErr))
+	assert.True(t, errors.Is(e, closedErr))
+	assert.False(t, errors.Is(e, errors.New("error")))
+}
+
+type fooErr struct{ str string }
+
+func (e fooErr) Error() string {
+	return e.str
+}
+
+type barErr struct{ str string }
+
+func (e barErr) Error() string {
+	return e.str
+}
+
+func TestErrorAs(t *testing.T) {
+	var e Error
+	fe := fooErr{str: "foo"}
+	e = append(e, fe)
+
+	var tf fooErr
+	var tb barErr
+
+	assert.True(t, errors.As(e, &tf))
+	assert.False(t, errors.As(e, &tb))
+	assert.Equal(t, "foo", tf.str)
 }

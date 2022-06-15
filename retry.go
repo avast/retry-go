@@ -64,6 +64,7 @@ package retry
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -189,6 +190,24 @@ func (e Error) Error() string {
 	}
 
 	return fmt.Sprintf("All attempts fail:\n%s", strings.Join(logWithNumber, "\n"))
+}
+
+func (e Error) Is(target error) bool {
+	for _, v := range e {
+		if errors.Is(v, target) {
+			return true
+		}
+	}
+	return false
+}
+
+func (e Error) As(target interface{}) bool {
+	for _, v := range e {
+		if errors.As(v, target) {
+			return true
+		}
+	}
+	return false
 }
 
 func lenWithoutNil(e Error) (count int) {
