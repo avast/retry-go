@@ -94,22 +94,6 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 		return err
 	}
 
-	// Setting attempts to 0 means we'll retry until we succeed
-	if config.attempts == 0 {
-		for err := retryableFunc(); err != nil; err = retryableFunc() {
-			n++
-
-			config.onRetry(n, err)
-			select {
-			case <-time.After(delay(config, n, err)):
-			case <-config.context.Done():
-				return nil
-			}
-		}
-
-		return nil
-	}
-
 	var errorLog Error
 	if !config.lastErrorOnly {
 		errorLog = make(Error, config.attempts)
@@ -118,7 +102,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	}
 
 	lastErrIndex := n
-	for n < config.attempts {
+	for config.attempts == 0 || n < config.attempts {
 		err := retryableFunc()
 
 		if err != nil {
