@@ -2,8 +2,7 @@
 
 [![Release](https://img.shields.io/github/release/avast/retry-go.svg?style=flat-square)](https://github.com/avast/retry-go/releases/latest)
 [![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](LICENSE.md)
-[![Travis](https://img.shields.io/travis/avast/retry-go.svg?style=flat-square)](https://travis-ci.org/avast/retry-go)
-[![AppVeyor](https://ci.appveyor.com/api/projects/status/fieg9gon3qlq0a9a?svg=true)](https://ci.appveyor.com/project/JaSei/retry-go)
+![GitHub Actions](https://github.com/avast/retry-go/actions/workflows/workflow.yaml/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/avast/retry-go?style=flat-square)](https://goreportcard.com/report/github.com/avast/retry-go)
 [![GoDoc](https://godoc.org/github.com/avast/retry-go?status.svg&style=flat-square)](http://godoc.org/github.com/avast/retry-go)
 [![codecov.io](https://codecov.io/github/avast/retry-go/coverage.svg?branch=master)](https://codecov.io/github/avast/retry-go?branch=master)
@@ -14,8 +13,7 @@ Simple library for retry mechanism
 slightly inspired by
 [Try::Tiny::Retry](https://metacpan.org/pod/Try::Tiny::Retry)
 
-
-### SYNOPSIS
+# SYNOPSIS
 
 http get with retry:
 
@@ -42,8 +40,7 @@ http get with retry:
 
 [next examples](https://github.com/avast/retry-go/tree/master/examples)
 
-
-### SEE ALSO
+# SEE ALSO
 
 * [giantswarm/retry-go](https://github.com/giantswarm/retry-go) - slightly
 complicated interface.
@@ -61,27 +58,26 @@ slightly similar as this package, don't have 'simple' `Retry` method
 * [matryer/try](https://github.com/matryer/try) - very popular package,
 nonintuitive interface (for me)
 
-
-### BREAKING CHANGES
+# BREAKING CHANGES
 
 * 4.0.0
 
-    * infinity retry is possible by set `Attempts(0)` by PR [#49](https://github.com/avast/retry-go/pull/49)
+    - infinity retry is possible by set `Attempts(0)` by PR [#49](https://github.com/avast/retry-go/pull/49)
 
 * 3.0.0
 
-    * `DelayTypeFunc` accepts a new parameter `err` - this breaking change affects only your custom Delay Functions. This change allow [make delay functions based on error](examples/delay_based_on_error_test.go).
+    - `DelayTypeFunc` accepts a new parameter `err` - this breaking change affects only your custom Delay Functions. This change allow [make delay functions based on error](examples/delay_based_on_error_test.go).
 
 * 1.0.2 -> 2.0.0
 
-    * argument of `retry.Delay` is final delay (no multiplication by `retry.Units` anymore)
-    * function `retry.Units` are removed
-    * [more about this breaking change](https://github.com/avast/retry-go/issues/7)
+    - argument of `retry.Delay` is final delay (no multiplication by `retry.Units` anymore)
+    - function `retry.Units` are removed
+    - [more about this breaking change](https://github.com/avast/retry-go/issues/7)
 
 * 0.3.0 -> 1.0.0
 
-    * `retry.Retry` function are changed to `retry.Do` function
-    * `retry.RetryCustom` (OnRetry) and `retry.RetryCustomWithOpts` functions are now implement via functions produces Options (aka `retry.OnRetry`)
+    - `retry.Retry` function are changed to `retry.Do` function
+    - `retry.RetryCustom` (OnRetry) and `retry.RetryCustomWithOpts` functions are now implement via functions produces Options (aka `retry.OnRetry`)
 
 ## Usage
 
@@ -382,7 +378,7 @@ Try `make help` for more information.
 
 ### Before pull request
 
-> maybe you need `make setup` in order to setup environment 
+> maybe you need `make setup` in order to setup environment
 
 please try:
 * run tests (`make test`)
