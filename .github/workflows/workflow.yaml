@@ -30,6 +30,8 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go-version }}
+          check-latest: true
+          cache: true
       - name: Display Go version
         run: go version
       - name: Install dependencies
