@@ -118,7 +118,7 @@ func TestDefaultSleep(t *testing.T) {
 	)
 	dur := time.Since(start)
 	assert.Error(t, err)
-	assert.True(t, dur > 300*time.Millisecond, "3 times default retry is longer then 300ms")
+	assert.Greater(t, dur, 300*time.Millisecond, "3 times default retry is longer then 300ms")
 }
 
 func TestFixedSleep(t *testing.T) {
@@ -130,7 +130,7 @@ func TestFixedSleep(t *testing.T) {
 	)
 	dur := time.Since(start)
 	assert.Error(t, err)
-	assert.True(t, dur < 500*time.Millisecond, "3 times default retry is shorter then 500ms")
+	assert.Less(t, dur, 500*time.Millisecond, "3 times default retry is shorter then 500ms")
 }
 
 func TestLastErrorOnly(t *testing.T) {
@@ -161,6 +161,10 @@ func TestUnrecoverableError(t *testing.T) {
 }
 
 func TestCombineFixedDelays(t *testing.T) {
+	if os.Getenv("OS") == "macos-latest" {
+		t.Skip("Skipping testing in MacOS GitHub actions - too slow, duration is wrong")
+	}
+
 	start := time.Now()
 	err := Do(
 		func() error { return errors.New("test") },
@@ -169,11 +173,15 @@ func TestCombineFixedDelays(t *testing.T) {
 	)
 	dur := time.Since(start)
 	assert.Error(t, err)
-	assert.True(t, dur > 400*time.Millisecond, "3 times combined, fixed retry is longer then 400ms")
-	assert.True(t, dur < 500*time.Millisecond, "3 times combined, fixed retry is shorter then 500ms")
+	assert.Greater(t, dur, 400*time.Millisecond, "3 times combined, fixed retry is greater then 400ms")
+	assert.Less(t, dur, 500*time.Millisecond, "3 times combined, fixed retry is less then 500ms")
 }
 
 func TestRandomDelay(t *testing.T) {
+	if os.Getenv("OS") == "macos-latest" {
+		t.Skip("Skipping testing in MacOS GitHub actions - too slow, duration is wrong")
+	}
+
 	start := time.Now()
 	err := Do(
 		func() error { return errors.New("test") },
@@ -188,6 +196,10 @@ func TestRandomDelay(t *testing.T) {
 }
 
 func TestMaxDelay(t *testing.T) {
+	if os.Getenv("OS") == "macos-latest" {
+		t.Skip("Skipping testing in MacOS GitHub actions - too slow, duration is wrong")
+	}
+
 	start := time.Now()
 	err := Do(
 		func() error { return errors.New("test") },
