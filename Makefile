@@ -17,9 +17,9 @@ else
 endif
 
 setup:
-	go install github.com/pierrre/gotestcover
-	go install golang.org/x/tools/cmd/cover
-	go install github.com/robertkrimen/godocdown/godocdown
+	go install github.com/pierrre/gotestcover@latest
+	go install golang.org/x/tools/cmd/cover@latest
+	go install github.com/robertkrimen/godocdown/godocdown@latest
 	go mod download
 
 generate: ## Generate README.md
