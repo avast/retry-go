@@ -1,0 +1,45 @@
+name: Go
+
+on: [push]
+
+jobs:
+  golangci-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v3
+        with:
+          go-version: 1.17
+      - uses: actions/checkout@v3
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+  tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: [ '1.16', '1.17', '1.18', '1.19' ]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      OS: ${{ matrix.os }}
+      GOVERSION: ${{ matrix.go-version }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Display Go version
+        run: go version
+      - name: Install dependencies
+        run: make setup
+      - name: Test
+        run: make ci
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          env_vars: OS, GOVERSION
+          fail_ci_if_error: true
+          flags: unittest
