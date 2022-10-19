@@ -221,6 +221,8 @@ when you need unwrap all erros, you should use `WrappedErrors()` instead
 	)
 
 	fmt.Println(errors.Unwrap(err)) # "original error" is printed
+
+added in version 4.1.0
 */
 func (e Error) Unwrap() error {
 	return e[len(e)-1]
