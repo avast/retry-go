@@ -117,8 +117,14 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 		errorLog = make(Error, 1)
 	}
 
+	attemptsForError := make(map[error]uint, len(config.attemptsForError))
+	for err, attempts := range config.attemptsForError {
+		attemptsForError[err] = attempts
+	}
+
 	lastErrIndex := n
-	for n < config.attempts {
+	shouldRetry := true
+	for shouldRetry {
 		err := retryableFunc()
 
 		if err != nil {
@@ -129,6 +135,14 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 			}
 
 			config.onRetry(n, err)
+
+			for errToCheck, attempts := range attemptsForError {
+				if errors.Is(err, errToCheck) {
+					attempts--
+					attemptsForError[errToCheck] = attempts
+					shouldRetry = shouldRetry && attempts > 0
+				}
+			}
 
 			// if this is last attempt - don't wait
 			if n == config.attempts-1 {
@@ -150,6 +164,8 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 		}
 
 		n++
+		shouldRetry = shouldRetry && n < config.attempts
+
 		if !config.lastErrorOnly {
 			lastErrIndex = n
 		}
@@ -163,15 +179,16 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 
 func newDefaultRetryConfig() *Config {
 	return &Config{
-		attempts:      uint(10),
-		delay:         100 * time.Millisecond,
-		maxJitter:     100 * time.Millisecond,
-		onRetry:       func(n uint, err error) {},
-		retryIf:       IsRecoverable,
-		delayType:     CombineDelay(BackOffDelay, RandomDelay),
-		lastErrorOnly: false,
-		context:       context.Background(),
-		timer:         &timerImpl{},
+		attempts:         uint(10),
+		attemptsForError: make(map[error]uint),
+		delay:            100 * time.Millisecond,
+		maxJitter:        100 * time.Millisecond,
+		onRetry:          func(n uint, err error) {},
+		retryIf:          IsRecoverable,
+		delayType:        CombineDelay(BackOffDelay, RandomDelay),
+		lastErrorOnly:    false,
+		context:          context.Background(),
+		timer:            &timerImpl{},
 	}
 }
 
