@@ -209,6 +209,25 @@ func (e Error) As(target interface{}) bool {
 	return false
 }
 
+/*
+Unwrap the last error for compatible with the `errors.Unwrap()`
+when you need unwrap all erros, you should use `WrappedErrors()` instead
+
+	err := Do(
+		func() error {
+			return errors.New("original error")
+		},
+		Attempts(1),
+	)
+
+	fmt.Println(errors.Unwrap(err)) # "original error" is printed
+
+added in version 4.1.0
+*/
+func (e Error) Unwrap() error {
+	return e[len(e)-1]
+}
+
 func lenWithoutNil(e Error) (count int) {
 	for _, v := range e {
 		if v != nil {
