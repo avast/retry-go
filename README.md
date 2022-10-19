@@ -228,6 +228,17 @@ func Attempts(attempts uint) Option
 Attempts set count of retry. Setting to 0 will retry until the retried function
 succeeds. default is 10
 
+#### func  AttemptsForError
+
+```go
+func AttemptsForError(attempts uint, err error) Option
+```
+AttemptsForError sets count of retry in case execution results in given `err`
+Retries for the given `err` are also counted against total retries. The retry
+will stop if any of given retries is exhausted.
+
+added in 4.3.0
+
 #### func  Context
 
 ```go
@@ -344,13 +355,12 @@ wait for a set duration for retries.
 
 example of augmenting time.After with a print statement
 
-type struct MyTimer {} func (t *MyTimer) After(d time.Duration) <- chan
-time.Time {
+type struct MyTimer {}
 
-    fmt.Print("Timer called!")
-    return time.After(d)
-
-}
+    func (t *MyTimer) After(d time.Duration) <- chan time.Time {
+        fmt.Print("Timer called!")
+        return time.After(d)
+    }
 
 retry.Do(
 
