@@ -472,3 +472,16 @@ func TestErrorAs(t *testing.T) {
 	assert.False(t, errors.As(e, &tb))
 	assert.Equal(t, "foo", tf.str)
 }
+
+func TestUnwrap(t *testing.T) {
+	testError := errors.New("test error")
+	err := Do(
+		func() error {
+			return testError
+		},
+		Attempts(1),
+	)
+
+	assert.Error(t, err)
+	assert.Equal(t, testError, errors.Unwrap(err))
+}
