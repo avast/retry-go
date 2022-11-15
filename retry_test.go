@@ -364,7 +364,8 @@ func TestContext(t *testing.T) {
 
 		expectedErrorFormat := `All attempts fail:
 #1: test
-#2: context canceled`
+#2: test
+#3: context canceled`
 		assert.Equal(t, expectedErrorFormat, err.Error(), "retry error format")
 		assert.Equal(t, 2, retrySum, "called at most once")
 	})

@@ -155,6 +155,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 				if config.lastErrorOnly {
 					return config.context.Err()
 				}
+				n++
 				errorLog[n] = config.context.Err()
 				return errorLog
 			}
