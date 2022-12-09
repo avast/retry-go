@@ -16,28 +16,28 @@ slightly inspired by
 # SYNOPSIS
 
 http get with retry:
+```go
+url := "http://example.com"
+var body []byte
 
-    url := "http://example.com"
-    var body []byte
+err := retry.Do(
+	func() error {
+		resp, err := http.Get(url)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		body, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
 
-    err := retry.Do(
-    	func() error {
-    		resp, err := http.Get(url)
-    		if err != nil {
-    			return err
-    		}
-    		defer resp.Body.Close()
-    		body, err = ioutil.ReadAll(resp.Body)
-    		if err != nil {
-    			return err
-    		}
+		return nil
+	},
+)
 
-    		return nil
-    	},
-    )
-
-    fmt.Println(body)
-
+fmt.Println(body)
+```
 [next examples](https://github.com/avast/retry-go/tree/master/examples)
 
 # SEE ALSO
@@ -182,16 +182,16 @@ func (e Error) Unwrap() error
 ```
 Unwrap the last error for compatible with the `errors.Unwrap()` when you need
 unwrap all erros, you should use `WrappedErrors()` instead
+```go
+err := Do(
+	func() error {
+		return errors.New("original error")
+	},
+	Attempts(1),
+)
 
-    err := Do(
-    	func() error {
-    		return errors.New("original error")
-    	},
-    	Attempts(1),
-    )
-
-    fmt.Println(errors.Unwrap(err)) # "original error" is printed
-
+fmt.Println(errors.Unwrap(err)) // "original error" is printed
+```
 added in version 4.2.0
 
 #### func (Error) WrappedErrors
@@ -248,17 +248,17 @@ Context allow to set context of retry default are Background context
 
 example of immediately cancellation (maybe it isn't the best example, but it
 describes behavior enough; I hope)
+```go
+ctx, cancel := context.WithCancel(context.Background())
+cancel()
 
-    ctx, cancel := context.WithCancel(context.Background())
-    cancel()
-
-    retry.Do(
-    	func() error {
-    		...
-    	},
-    	retry.Context(ctx),
-    )
-
+retry.Do(
+	func() error {
+		...
+	},
+	retry.Context(ctx),
+)
+```
 #### func  Delay
 
 ```go
@@ -303,16 +303,16 @@ func OnRetry(onRetry OnRetryFunc) Option
 OnRetry function callback are called each retry
 
 log each retry example:
-
-    retry.Do(
-    	func() error {
-    		return errors.New("some error")
-    	},
-    	retry.OnRetry(func(n uint, err error) {
-    		log.Printf("#%d: %s\n", n, err)
-    	}),
-    )
-
+```go
+retry.Do(
+	func() error {
+		return errors.New("some error")
+	},
+	retry.OnRetry(func(n uint, err error) {
+		log.Printf("#%d: %s\n", n, err)
+	}),
+)
+```
 #### func  RetryIf
 
 ```go
@@ -322,28 +322,28 @@ RetryIf controls whether a retry should be attempted after an error (assuming
 there are any retry attempts remaining)
 
 skip retry if special error example:
-
-    retry.Do(
-    	func() error {
-    		return errors.New("special error")
-    	},
-    	retry.RetryIf(func(err error) bool {
-    		if err.Error() == "special error" {
-    			return false
-    		}
-    		return true
-    	})
-    )
-
+```go
+retry.Do(
+	func() error {
+		return errors.New("special error")
+	},
+	retry.RetryIf(func(err error) bool {
+		if err.Error() == "special error" {
+			return false
+		}
+		return true
+	})
+)
+```
 By default RetryIf stops execution if the error is wrapped using
 `retry.Unrecoverable`, so above example may also be shortened to:
-
-    retry.Do(
-    	func() error {
-    		return retry.Unrecoverable(errors.New("special error"))
-    	}
-    )
-
+```go
+retry.Do(
+	func() error {
+		return retry.Unrecoverable(errors.New("special error"))
+	}
+)
+```
 #### func  WithTimer
 
 ```go
@@ -354,21 +354,21 @@ primarily is useful for mocking/testing, where you may not want to explicitly
 wait for a set duration for retries.
 
 example of augmenting time.After with a print statement
-
+```go
 type struct MyTimer {}
 
-    func (t *MyTimer) After(d time.Duration) <- chan time.Time {
-        fmt.Print("Timer called!")
-        return time.After(d)
-    }
+func (t *MyTimer) After(d time.Duration) <- chan time.Time {
+    fmt.Print("Timer called!")
+    return time.After(d)
+}
 
 retry.Do(
 
-        func() error { ... },
-    	   retry.WithTimer(&MyTimer{})
+    func() error { ... },
+       retry.WithTimer(&MyTimer{})
 
 )
-
+```
 #### type RetryIfFunc
 
 ```go
