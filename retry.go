@@ -228,8 +228,8 @@ func (e Error) As(target interface{}) bool {
 }
 
 /*
-Unwrap the last error for compatible with the `errors.Unwrap()`
-when you need unwrap all erros, you should use `WrappedErrors()` instead
+Unwrap the last error for compatibility with `errors.Unwrap()`.
+When you need to unwrap all errors, you should use `WrappedErrors()` instead.
 
 	err := Do(
 		func() error {
@@ -240,7 +240,7 @@ when you need unwrap all erros, you should use `WrappedErrors()` instead
 
 	fmt.Println(errors.Unwrap(err)) # "original error" is printed
 
-added in version 4.2.0
+Added in version 4.2.0.
 */
 func (e Error) Unwrap() error {
 	return e[len(e)-1]
