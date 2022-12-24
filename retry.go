@@ -157,7 +157,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 				}
 				n++
 				errorLog[n] = config.context.Err()
-				return errorLog
+				return errorLog[:lenWithoutNil(errorLog)]
 			}
 
 		} else {
@@ -175,7 +175,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	if config.lastErrorOnly {
 		return errorLog[lastErrIndex]
 	}
-	return errorLog
+	return errorLog[:lenWithoutNil(errorLog)]
 }
 
 func newDefaultRetryConfig() *Config {
