@@ -31,6 +31,7 @@ func TestDoAllFailed(t *testing.T) {
 #8: test
 #9: test
 #10: test`
+	assert.Len(t, err, 10)
 	assert.Equal(t, expectedErrorFormat, err.Error(), "retry error format")
 	assert.Equal(t, uint(45), retrySum, "right count of retry")
 }
@@ -68,6 +69,7 @@ func TestRetryIf(t *testing.T) {
 #1: test
 #2: test
 #3: special`
+	assert.Len(t, err, 3)
 	assert.Equal(t, expectedErrorFormat, err.Error(), "retry error format")
 	assert.Equal(t, uint(2), retryCount, "right count of retry")
 
@@ -164,7 +166,7 @@ func TestLastErrorOnly(t *testing.T) {
 func TestUnrecoverableError(t *testing.T) {
 	attempts := 0
 	testErr := errors.New("error")
-	expectedErr := Error{testErr, nil}
+	expectedErr := Error{testErr}
 	err := Do(
 		func() error {
 			attempts++
@@ -367,6 +369,7 @@ func TestContext(t *testing.T) {
 #1: test
 #2: test
 #3: context canceled`
+		assert.Len(t, err, 3)
 		assert.Equal(t, expectedErrorFormat, err.Error(), "retry error format")
 		assert.Equal(t, 2, retrySum, "called at most once")
 	})
