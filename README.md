@@ -180,8 +180,8 @@ func (e Error) Is(target error) bool
 ```go
 func (e Error) Unwrap() error
 ```
-Unwrap the last error for compatible with the `errors.Unwrap()` when you need
-unwrap all erros, you should use `WrappedErrors()` instead
+Unwrap the last error for compatibility with `errors.Unwrap()`. When you need to
+unwrap all errors, you should use `WrappedErrors()` instead.
 
     err := Do(
     	func() error {
@@ -192,7 +192,7 @@ unwrap all erros, you should use `WrappedErrors()` instead
 
     fmt.Println(errors.Unwrap(err)) # "original error" is printed
 
-added in version 4.2.0
+Added in version 4.2.0.
 
 #### func (Error) WrappedErrors
 
