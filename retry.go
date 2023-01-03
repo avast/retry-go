@@ -243,7 +243,7 @@ When you need to unwrap all errors, you should use `WrappedErrors()` instead.
 Added in version 4.2.0.
 */
 func (e Error) Unwrap() error {
-	return e[len(e)-1]
+	return e[lenWithoutNil(e)-1]
 }
 
 func lenWithoutNil(e Error) (count int) {

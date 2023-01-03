@@ -163,16 +163,17 @@ func TestLastErrorOnly(t *testing.T) {
 
 func TestUnrecoverableError(t *testing.T) {
 	attempts := 0
-	expectedErr := errors.New("error")
+	testErr := errors.New("error")
+	expectedErr := Error{testErr, nil}
 	err := Do(
 		func() error {
 			attempts++
-			return Unrecoverable(expectedErr)
+			return Unrecoverable(testErr)
 		},
 		Attempts(2),
-		LastErrorOnly(true),
 	)
 	assert.Equal(t, expectedErr, err)
+	assert.Equal(t, testErr, errors.Unwrap(err))
 	assert.Equal(t, 1, attempts, "unrecoverable error broke the loop")
 }
 
