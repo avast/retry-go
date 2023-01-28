@@ -99,11 +99,15 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 		for err := retryableFunc(); err != nil; err = retryableFunc() {
 			n++
 
+			if !IsRecoverable(err) {
+				return err
+			}
+
 			config.onRetry(n, err)
 			select {
 			case <-config.timer.After(delay(config, n, err)):
 			case <-config.context.Done():
-				return nil
+				return config.context.Err()
 			}
 		}
 
