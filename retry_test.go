@@ -112,6 +112,18 @@ func TestZeroAttemptsWithoutError(t *testing.T) {
 	assert.Equal(t, count, 1)
 }
 
+func TestZeroAttemptsWithUnrecoverableError(t *testing.T) {
+	err := Do(
+		func() error {
+			return Unrecoverable(assert.AnError)
+		},
+		Attempts(0),
+		MaxDelay(time.Nanosecond),
+	)
+	assert.Error(t, err)
+	assert.Equal(t, Unrecoverable(assert.AnError), err)
+}
+
 func TestAttemptsForError(t *testing.T) {
 	count := uint(0)
 	testErr := os.ErrInvalid
@@ -395,9 +407,6 @@ func TestContext(t *testing.T) {
 	})
 
 	t.Run("cancel in retry progress - infinite attempts", func(t *testing.T) {
-		testFailedInRetry := make(chan bool)
-		testEnded := make(chan bool)
-
 		go func() {
 			ctx, cancel := context.WithCancel(context.Background())
 
@@ -410,27 +419,15 @@ func TestContext(t *testing.T) {
 					if retrySum > 1 {
 						cancel()
 					}
-
-					if retrySum > 2 {
-						testFailedInRetry <- true
-					}
-
 				}),
 				Context(ctx),
 				Attempts(0),
 			)
 
-			assert.NoError(t, err, "infinite attempts should not report error")
-			assert.Error(t, ctx.Err(), "immediately canceled after context cancel called")
-			testEnded <- true
+			assert.Equal(t, context.Canceled, err)
+
+			assert.Equal(t, 2, retrySum, "called at most once")
 		}()
-
-		select {
-		case <-testFailedInRetry:
-			t.Error("Test ran longer than expected, cancel did not work")
-		case <-testEnded:
-		}
-
 	})
 }
 
