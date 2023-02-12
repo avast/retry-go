@@ -283,8 +283,13 @@ func Unrecoverable(err error) error {
 
 // IsRecoverable checks if error is an instance of `unrecoverableError`
 func IsRecoverable(err error) bool {
+	return !errors.Is(err, unrecoverableError{})
+}
+
+// Adds support for errors.Is usage on unrecoverableError
+func (unrecoverableError) Is(err error) bool {
 	_, isUnrecoverable := err.(unrecoverableError)
-	return !isUnrecoverable
+	return isUnrecoverable
 }
 
 func unpackUnrecoverable(err error) error {
