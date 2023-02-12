@@ -72,7 +72,29 @@ func TestRetryIf(t *testing.T) {
 	assert.Len(t, err, 3)
 	assert.Equal(t, expectedErrorFormat, err.Error(), "retry error format")
 	assert.Equal(t, uint(2), retryCount, "right count of retry")
+}
 
+func TestRetryIf_ZeroAttempts(t *testing.T) {
+	var retryCount uint
+	err := Do(
+		func() error {
+			if retryCount >= 2 {
+				return errors.New("special")
+			} else {
+				return errors.New("test")
+			}
+		},
+		OnRetry(func(n uint, err error) { retryCount++ }),
+		RetryIf(func(err error) bool {
+			return err.Error() != "special"
+		}),
+		Delay(time.Nanosecond),
+		Attempts(0),
+	)
+	assert.Error(t, err)
+
+	assert.Equal(t, "special", err.Error(), "retry error format")
+	assert.Equal(t, uint(2), retryCount, "right count of retry")
 }
 
 func TestZeroAttemptsWithError(t *testing.T) {
