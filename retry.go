@@ -74,6 +74,7 @@ import (
 // Function signature of retryable function
 type RetryableFunc func() error
 
+// Function signature of retryable function with data
 type RetryableFuncWithData[T any] func() (T, error)
 
 // Default timer is a wrapper around time.After
