@@ -8,25 +8,27 @@ slightly inspired by [Try::Tiny::Retry](https://metacpan.org/pod/Try::Tiny::Retr
 http get with retry:
 
 	url := "http://example.com"
-	var body []byte
 
-	err := retry.Do(
-		func() error {
+	body, err := retry.DoWithData(
+		func() ([]byte, error) {
 			resp, err := http.Get(url)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			defer resp.Body.Close()
-			body, err = ioutil.ReadAll(resp.Body)
+			body, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
-			return nil
+			return body, nil
 		},
 	)
+	if err != nil {
+		// handle error
+	}
 
-	fmt.Println(body)
+	fmt.Println(string(body))
 
 [next examples](https://github.com/avast/retry-go/tree/master/examples)
 
@@ -72,6 +74,8 @@ import (
 // Function signature of retryable function
 type RetryableFunc func() error
 
+type RetryableFuncWithData[T any] func() (T, error)
+
 // Default timer is a wrapper around time.After
 type timerImpl struct{}
 
@@ -80,7 +84,18 @@ func (t *timerImpl) After(d time.Duration) <-chan time.Time {
 }
 
 func Do(retryableFunc RetryableFunc, opts ...Option) error {
+	retryableFuncWithData := func() (any, error) {
+		err := retryableFunc()
+		return nil, err
+	}
+
+	_, err := DoWithData(retryableFuncWithData, opts...)
+	return err
+}
+
+func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (T, error) {
 	var n uint
+	var emptyT T
 
 	// default
 	config := newDefaultRetryConfig()
@@ -91,27 +106,30 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	}
 
 	if err := config.context.Err(); err != nil {
-		return err
+		return emptyT, err
 	}
 
 	// Setting attempts to 0 means we'll retry until we succeed
 	if config.attempts == 0 {
-		for err := retryableFunc(); err != nil; err = retryableFunc() {
+		for {
+			t, err := retryableFunc()
+			if err == nil {
+				return t, nil
+			}
+
 			n++
 
 			if !IsRecoverable(err) {
-				return err
+				return emptyT, err
 			}
 
 			config.onRetry(n, err)
 			select {
 			case <-config.timer.After(delay(config, n, err)):
 			case <-config.context.Done():
-				return config.context.Err()
+				return emptyT, config.context.Err()
 			}
 		}
-
-		return nil
 	}
 
 	var errorLog Error
@@ -129,7 +147,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	lastErrIndex := n
 	shouldRetry := true
 	for shouldRetry {
-		err := retryableFunc()
+		t, err := retryableFunc()
 
 		if err != nil {
 			errorLog[lastErrIndex] = unpackUnrecoverable(err)
@@ -157,15 +175,15 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 			case <-config.timer.After(delay(config, n, err)):
 			case <-config.context.Done():
 				if config.lastErrorOnly {
-					return config.context.Err()
+					return emptyT, config.context.Err()
 				}
 				n++
 				errorLog[n] = config.context.Err()
-				return errorLog[:lenWithoutNil(errorLog)]
+				return emptyT, errorLog[:lenWithoutNil(errorLog)]
 			}
 
 		} else {
-			return nil
+			return t, nil
 		}
 
 		n++
@@ -177,9 +195,9 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	}
 
 	if config.lastErrorOnly {
-		return errorLog[lastErrIndex]
+		return emptyT, errorLog[lastErrIndex]
 	}
-	return errorLog[:lenWithoutNil(errorLog)]
+	return emptyT, errorLog[:lenWithoutNil(errorLog)]
 }
 
 func newDefaultRetryConfig() *Config {

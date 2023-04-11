@@ -11,14 +11,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDoAllFailed(t *testing.T) {
+func TestDoWithDataAllFailed(t *testing.T) {
 	var retrySum uint
-	err := Do(
-		func() error { return errors.New("test") },
+	v, err := DoWithData(
+		func() (int, error) { return 7, errors.New("test") },
 		OnRetry(func(n uint, err error) { retrySum += n }),
 		Delay(time.Nanosecond),
 	)
 	assert.Error(t, err)
+	assert.Equal(t, 0, v)
 
 	expectedErrorFormat := `All attempts fail:
 #1: test
@@ -44,7 +45,19 @@ func TestDoFirstOk(t *testing.T) {
 	)
 	assert.NoError(t, err)
 	assert.Equal(t, uint(0), retrySum, "no retry")
+}
 
+func TestDoWithDataFirstOk(t *testing.T) {
+	returnVal := 1
+
+	var retrySum uint
+	val, err := DoWithData(
+		func() (int, error) { return returnVal, nil },
+		OnRetry(func(n uint, err error) { retrySum += n }),
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, returnVal, val)
+	assert.Equal(t, uint(0), retrySum, "no retry")
 }
 
 func TestRetryIf(t *testing.T) {
