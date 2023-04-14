@@ -70,7 +70,7 @@ import (
 )
 
 // Function signature of retryable function
-type RetryableFunc func() error
+type RetryableFunc func() (any, error)
 
 // Default timer is a wrapper around time.After
 type timerImpl struct{}
@@ -79,7 +79,7 @@ func (t *timerImpl) After(d time.Duration) <-chan time.Time {
 	return time.After(d)
 }
 
-func Do(retryableFunc RetryableFunc, opts ...Option) error {
+func Do(retryableFunc RetryableFunc, opts ...Option) (any, error) {
 	var n uint
 
 	// default
@@ -91,27 +91,29 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	}
 
 	if err := config.context.Err(); err != nil {
-		return err
+		return nil, err
 	}
 
 	// Setting attempts to 0 means we'll retry until we succeed
 	if config.attempts == 0 {
-		for err := retryableFunc(); err != nil; err = retryableFunc() {
-			n++
-
-			if !IsRecoverable(err) {
-				return err
-			}
-
-			config.onRetry(n, err)
-			select {
-			case <-config.timer.After(delay(config, n, err)):
-			case <-config.context.Done():
-				return config.context.Err()
+		for true {
+			value, err := retryableFunc()
+			if err != nil {
+				n++
+				if !IsRecoverable(err) {
+					return nil, err
+				}
+				config.onRetry(n, err)
+				config.onRetry(n, err)
+				select {
+				case <-config.timer.After(delay(config, n, err)):
+				case <-config.context.Done():
+					return nil, config.context.Err()
+				}
+			} else {
+				return value, nil
 			}
 		}
-
-		return nil
 	}
 
 	var errorLog Error
@@ -129,7 +131,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	lastErrIndex := n
 	shouldRetry := true
 	for shouldRetry {
-		err := retryableFunc()
+		value, err := retryableFunc()
 
 		if err != nil {
 			errorLog[lastErrIndex] = unpackUnrecoverable(err)
@@ -157,15 +159,15 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 			case <-config.timer.After(delay(config, n, err)):
 			case <-config.context.Done():
 				if config.lastErrorOnly {
-					return config.context.Err()
+					return nil, config.context.Err()
 				}
 				n++
 				errorLog[n] = config.context.Err()
-				return errorLog[:lenWithoutNil(errorLog)]
+				return nil, errorLog[:lenWithoutNil(errorLog)]
 			}
 
 		} else {
-			return nil
+			return value, nil
 		}
 
 		n++
@@ -177,9 +179,9 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	}
 
 	if config.lastErrorOnly {
-		return errorLog[lastErrIndex]
+		return nil, errorLog[lastErrIndex]
 	}
-	return errorLog[:lenWithoutNil(errorLog)]
+	return nil, errorLog[:lenWithoutNil(errorLog)]
 }
 
 func newDefaultRetryConfig() *Config {
