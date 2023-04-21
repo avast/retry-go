@@ -97,12 +97,15 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	// Setting attempts to 0 means we'll retry until we succeed
 	if config.attempts == 0 {
 		for err := retryableFunc(); err != nil; err = retryableFunc() {
-			n++
-
 			if !IsRecoverable(err) {
 				return err
 			}
 
+			if !config.retryIf(err) {
+				return err
+			}
+
+			n++
 			config.onRetry(n, err)
 			select {
 			case <-config.timer.After(delay(config, n, err)):
@@ -262,8 +265,13 @@ func Unrecoverable(err error) error {
 
 // IsRecoverable checks if error is an instance of `unrecoverableError`
 func IsRecoverable(err error) bool {
+	return !errors.Is(err, unrecoverableError{})
+}
+
+// Adds support for errors.Is usage on unrecoverableError
+func (unrecoverableError) Is(err error) bool {
 	_, isUnrecoverable := err.(unrecoverableError)
-	return !isUnrecoverable
+	return isUnrecoverable
 }
 
 func unpackUnrecoverable(err error) error {
