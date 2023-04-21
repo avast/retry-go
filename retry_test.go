@@ -503,3 +503,14 @@ func TestUnwrap(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, testError, errors.Unwrap(err))
 }
+
+func TestIsRecoverable(t *testing.T) {
+	err := errors.New("err")
+	assert.True(t, IsRecoverable(err))
+
+	err = Unrecoverable(err)
+	assert.False(t, IsRecoverable(err))
+
+	err = fmt.Errorf("wrapping: %w", err)
+	assert.False(t, IsRecoverable(err))
+}
