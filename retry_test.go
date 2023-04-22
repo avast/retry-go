@@ -526,7 +526,6 @@ func TestUnwrap(t *testing.T) {
 	assert.Equal(t, testError, errors.Unwrap(err))
 }
 
-
 func BenchmarkDo(b *testing.B) {
 	testError := errors.New("test error")
 
