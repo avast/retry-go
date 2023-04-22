@@ -8,6 +8,32 @@ slightly inspired by [Try::Tiny::Retry](https://metacpan.org/pod/Try::Tiny::Retr
 http get with retry:
 
 	url := "http://example.com"
+	var body []byte
+
+	err := retry.Do(
+		func() error {
+			resp, err := http.Get(url)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			body, err = ioutil.ReadAll(resp.Body)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		},
+	)
+	if err != nil {
+		// handle error
+	}
+
+	fmt.Println(string(body))
+
+http get with retry with data:
+
+	url := "http://example.com"
 
 	body, err := retry.DoWithData(
 		func() ([]byte, error) {
