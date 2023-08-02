@@ -113,10 +113,10 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 			select {
 			case <-config.timer.After(delay(config, n, err)):
 			case <-config.context.Done():
-				if !config.wrapContextErrorWithLastError {
-					return config.context.Err()
+				if config.wrapContextErrorWithLastError {
+					return fmt.Errorf("%w: %w", config.context.Err(), lastErr)
 				}
-				return fmt.Errorf("%w: %w", config.context.Err(), lastErr)
+				return config.context.Err()
 			}
 		}
 
