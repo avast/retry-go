@@ -95,6 +95,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	}
 
 	// Setting attempts to 0 means we'll retry until we succeed
+	var lastErr error
 	if config.attempts == 0 {
 		for err := retryableFunc(); err != nil; err = retryableFunc() {
 			if !IsRecoverable(err) {
@@ -105,12 +106,17 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 				return err
 			}
 
+			lastErr = err
+
 			n++
 			config.onRetry(n, err)
 			select {
 			case <-config.timer.After(delay(config, n, err)):
 			case <-config.context.Done():
-				return config.context.Err()
+				if !config.wrapContextErrorWithLastError {
+					return config.context.Err()
+				}
+				return fmt.Errorf("%w: %w", config.context.Err(), lastErr)
 			}
 		}
 

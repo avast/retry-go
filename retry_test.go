@@ -451,6 +451,45 @@ func TestContext(t *testing.T) {
 			assert.Equal(t, 2, retrySum, "called at most once")
 		}()
 	})
+
+	t.Run("cancelled on retry infinte attempts - wraps context error with last retried function error", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		retrySum := 0
+		err := Do(
+			func() error { return fooErr{str: fmt.Sprintf("error %d", retrySum+1)} },
+			OnRetry(func(n uint, err error) {
+				retrySum += 1
+				if retrySum == 2 {
+					cancel()
+				}
+			}),
+			Context(ctx),
+			Attempts(0),
+			WrapContextErrorWithLastError(true),
+		)
+		assert.ErrorIs(t, err, context.Canceled)
+		assert.ErrorIs(t, err, fooErr{str: "error 2"})
+	})
+
+	t.Run("timed out on retry infinte attempts - wraps context error with last retried function error", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*500)
+		defer cancel()
+
+		retrySum := 0
+		err := Do(
+			func() error { return fooErr{str: fmt.Sprintf("error %d", retrySum+1)} },
+			OnRetry(func(n uint, err error) {
+				retrySum += 1
+			}),
+			Context(ctx),
+			Attempts(0),
+			WrapContextErrorWithLastError(true),
+		)
+		assert.ErrorIs(t, err, context.DeadlineExceeded)
+		assert.ErrorIs(t, err, fooErr{str: "error 2"})
+	})
 }
 
 type testTimer struct {

@@ -369,6 +369,30 @@ retry.Do(
 
 )
 
+#### func  WrapContextErrorWithLastError
+
+```go
+func WrapContextErrorWithLastError(wrapContextErrorWithLastError bool) Option
+```
+WrapContextErrorWithLastError allows the context error to be returned wrapped
+with the last error that the retried function returned. This is only applicable
+when Attempts is set to 0 to retry indefinitly and when using a context to
+cancel / timeout
+
+default is false
+
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+
+    retry.Do(
+    	func() error {
+    		...
+    	},
+    	retry.Context(ctx),
+    	retry.Attempts(0),
+    	retry.WrapContextErrorWithLastError(true),
+    )
+
 #### type RetryIfFunc
 
 ```go

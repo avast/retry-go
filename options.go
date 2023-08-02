@@ -23,17 +23,18 @@ type Timer interface {
 }
 
 type Config struct {
-	attempts         uint
-	attemptsForError map[error]uint
-	delay            time.Duration
-	maxDelay         time.Duration
-	maxJitter        time.Duration
-	onRetry          OnRetryFunc
-	retryIf          RetryIfFunc
-	delayType        DelayTypeFunc
-	lastErrorOnly    bool
-	context          context.Context
-	timer            Timer
+	attempts                      uint
+	attemptsForError              map[error]uint
+	delay                         time.Duration
+	maxDelay                      time.Duration
+	maxJitter                     time.Duration
+	onRetry                       OnRetryFunc
+	retryIf                       RetryIfFunc
+	delayType                     DelayTypeFunc
+	lastErrorOnly                 bool
+	context                       context.Context
+	timer                         Timer
+	wrapContextErrorWithLastError bool
 
 	maxBackOffN uint
 }
@@ -248,5 +249,28 @@ func Context(ctx context.Context) Option {
 func WithTimer(t Timer) Option {
 	return func(c *Config) {
 		c.timer = t
+	}
+}
+
+// WrapContextErrorWithLastError allows the context error to be returned wrapped with the last error that the
+// retried function returned. This is only applicable when Attempts is set to 0 to retry indefinitly and when
+// using a context to cancel / timeout
+//
+// default is false
+//
+//	ctx, cancel := context.WithCancel(context.Background())
+//	defer cancel()
+//
+//	retry.Do(
+//		func() error {
+//			...
+//		},
+//		retry.Context(ctx),
+//		retry.Attempts(0),
+//		retry.WrapContextErrorWithLastError(true),
+//	)
+func WrapContextErrorWithLastError(wrapContextErrorWithLastError bool) Option {
+	return func(c *Config) {
+		c.wrapContextErrorWithLastError = wrapContextErrorWithLastError
 	}
 }
