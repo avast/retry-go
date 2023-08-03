@@ -114,7 +114,7 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 			case <-config.timer.After(delay(config, n, err)):
 			case <-config.context.Done():
 				if config.wrapContextErrorWithLastError {
-					return fmt.Errorf("%w: %w", config.context.Err(), lastErr)
+					return Error{config.context.Err(), lastErr}
 				}
 				return config.context.Err()
 			}
