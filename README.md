@@ -389,19 +389,17 @@ wait for a set duration for retries.
 
 example of augmenting time.After with a print statement
 
-type struct MyTimer {}
+    type struct MyTimer {}
 
     func (t *MyTimer) After(d time.Duration) <- chan time.Time {
         fmt.Print("Timer called!")
         return time.After(d)
     }
 
-retry.Do(
-
+    retry.Do(
         func() error { ... },
     	   retry.WithTimer(&MyTimer{})
-
-)
+    )
 
 #### type RetryIfFunc
 
