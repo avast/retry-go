@@ -112,8 +112,7 @@ func (t *timerImpl) After(d time.Duration) <-chan time.Time {
 
 func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	retryableFuncWithData := func() (any, error) {
-		err := retryableFunc()
-		return nil, err
+		return nil, retryableFunc()
 	}
 
 	_, err := DoWithData(retryableFuncWithData, opts...)
