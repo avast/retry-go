@@ -553,11 +553,37 @@ func BenchmarkDo(b *testing.B) {
 	}
 }
 
+func BenchmarkDoWithData(b *testing.B) {
+	testError := errors.New("test error")
+
+	for i := 0; i < b.N; i++ {
+		_, _ = DoWithData(
+			func() (int, error) {
+				return 0, testError
+			},
+			Attempts(10),
+			Delay(0),
+		)
+	}
+}
+
 func BenchmarkDoNoErrors(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = Do(
 			func() error {
 				return nil
+			},
+			Attempts(10),
+			Delay(0),
+		)
+	}
+}
+
+func BenchmarkDoWithDataNoErrors(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_, _ = DoWithData(
+			func() (int, error) {
+				return 0, nil
 			},
 			Attempts(10),
 			Delay(0),
