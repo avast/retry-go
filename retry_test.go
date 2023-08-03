@@ -526,6 +526,32 @@ func TestUnwrap(t *testing.T) {
 	assert.Equal(t, testError, errors.Unwrap(err))
 }
 
+func BenchmarkDo(b *testing.B) {
+	testError := errors.New("test error")
+
+	for i := 0; i < b.N; i++ {
+		Do(
+			func() error {
+				return testError
+			},
+			Attempts(10),
+			Delay(0),
+		)
+	}
+}
+
+func BenchmarkDoNoErrors(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		Do(
+			func() error {
+				return nil
+			},
+			Attempts(10),
+			Delay(0),
+		)
+	}
+}
+
 func TestIsRecoverable(t *testing.T) {
 	err := errors.New("err")
 	assert.True(t, IsRecoverable(err))

@@ -117,72 +117,61 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 		return nil
 	}
 
-	var errorLog Error
-	if !config.lastErrorOnly {
-		errorLog = make(Error, config.attempts)
-	} else {
-		errorLog = make(Error, 1)
-	}
+	errorLog := Error{}
 
 	attemptsForError := make(map[error]uint, len(config.attemptsForError))
 	for err, attempts := range config.attemptsForError {
 		attemptsForError[err] = attempts
 	}
 
-	lastErrIndex := n
 	shouldRetry := true
 	for shouldRetry {
 		err := retryableFunc()
-
-		if err != nil {
-			errorLog[lastErrIndex] = unpackUnrecoverable(err)
-
-			if !config.retryIf(err) {
-				break
-			}
-
-			config.onRetry(n, err)
-
-			for errToCheck, attempts := range attemptsForError {
-				if errors.Is(err, errToCheck) {
-					attempts--
-					attemptsForError[errToCheck] = attempts
-					shouldRetry = shouldRetry && attempts > 0
-				}
-			}
-
-			// if this is last attempt - don't wait
-			if n == config.attempts-1 {
-				break
-			}
-
-			select {
-			case <-config.timer.After(delay(config, n, err)):
-			case <-config.context.Done():
-				if config.lastErrorOnly {
-					return config.context.Err()
-				}
-				n++
-				errorLog[n] = config.context.Err()
-				return errorLog[:lenWithoutNil(errorLog)]
-			}
-
-		} else {
+		if err == nil {
 			return nil
+		}
+
+		errorLog = append(errorLog, unpackUnrecoverable(err))
+
+		if !config.retryIf(err) {
+			break
+		}
+
+		config.onRetry(n, err)
+
+		for errToCheck, attempts := range attemptsForError {
+			if errors.Is(err, errToCheck) {
+				attempts--
+				attemptsForError[errToCheck] = attempts
+				shouldRetry = shouldRetry && attempts > 0
+			}
+		}
+
+		// if this is last attempt - don't wait
+		if n == config.attempts-1 {
+			break
+		}
+
+		select {
+		case <-config.timer.After(delay(config, n, err)):
+		case <-config.context.Done():
+			if config.lastErrorOnly {
+				return config.context.Err()
+			}
+			n++
+
+			return append(errorLog, config.context.Err())
 		}
 
 		n++
 		shouldRetry = shouldRetry && n < config.attempts
-
-		if !config.lastErrorOnly {
-			lastErrIndex = n
-		}
 	}
 
 	if config.lastErrorOnly {
-		return errorLog[lastErrIndex]
+		return errorLog.Unwrap()
 	}
-	return errorLog[:lenWithoutNil(errorLog)]
+
+	return errorLog
 }
 
 func newDefaultRetryConfig() *Config {
@@ -206,7 +195,7 @@ type Error []error
 // Error method return string representation of Error
 // It is an implementation of error interface
 func (e Error) Error() string {
-	logWithNumber := make([]string, lenWithoutNil(e))
+	logWithNumber := make([]string, len(e))
 	for i, l := range e {
 		if l != nil {
 			logWithNumber[i] = fmt.Sprintf("#%d: %s", i+1, l.Error())
@@ -250,17 +239,7 @@ When you need to unwrap all errors, you should use `WrappedErrors()` instead.
 Added in version 4.2.0.
 */
 func (e Error) Unwrap() error {
-	return e[lenWithoutNil(e)-1]
-}
-
-func lenWithoutNil(e Error) (count int) {
-	for _, v := range e {
-		if v != nil {
-			count++
-		}
-	}
-
-	return
+	return e[len(e)-1]
 }
 
 // WrappedErrors returns the list of errors that this Error is wrapping.
