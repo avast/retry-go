@@ -543,7 +543,7 @@ func BenchmarkDo(b *testing.B) {
 	testError := errors.New("test error")
 
 	for i := 0; i < b.N; i++ {
-		Do(
+		_ = Do(
 			func() error {
 				return testError
 			},
@@ -555,7 +555,7 @@ func BenchmarkDo(b *testing.B) {
 
 func BenchmarkDoNoErrors(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		Do(
+		_ = Do(
 			func() error {
 				return nil
 			},
