@@ -25,8 +25,36 @@ http get with retry:
 			return nil
 		},
 	)
+	if err != nil {
+		// handle error
+	}
 
-	fmt.Println(body)
+	fmt.Println(string(body))
+
+http get with retry with data:
+
+	url := "http://example.com"
+
+	body, err := retry.DoWithData(
+		func() ([]byte, error) {
+			resp, err := http.Get(url)
+			if err != nil {
+				return nil, err
+			}
+			defer resp.Body.Close()
+			body, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+
+			return body, nil
+		},
+	)
+	if err != nil {
+		// handle error
+	}
+
+	fmt.Println(string(body))
 
 [next examples](https://github.com/avast/retry-go/tree/master/examples)
 
@@ -72,6 +100,9 @@ import (
 // Function signature of retryable function
 type RetryableFunc func() error
 
+// Function signature of retryable function with data
+type RetryableFuncWithData[T any] func() (T, error)
+
 // Default timer is a wrapper around time.After
 type timerImpl struct{}
 
@@ -80,7 +111,17 @@ func (t *timerImpl) After(d time.Duration) <-chan time.Time {
 }
 
 func Do(retryableFunc RetryableFunc, opts ...Option) error {
+	retryableFuncWithData := func() (any, error) {
+		return nil, retryableFunc()
+	}
+
+	_, err := DoWithData(retryableFuncWithData, opts...)
+	return err
+}
+
+func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (T, error) {
 	var n uint
+	var emptyT T
 
 	// default
 	config := newDefaultRetryConfig()
@@ -91,19 +132,24 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	}
 
 	if err := config.context.Err(); err != nil {
-		return err
+		return emptyT, err
 	}
 
 	// Setting attempts to 0 means we'll retry until we succeed
 	var lastErr error
 	if config.attempts == 0 {
-		for err := retryableFunc(); err != nil; err = retryableFunc() {
+		for {
+			t, err := retryableFunc()
+			if err == nil {
+				return t, nil
+			}
+
 			if !IsRecoverable(err) {
-				return err
+				return emptyT, err
 			}
 
 			if !config.retryIf(err) {
-				return err
+				return emptyT, err
 			}
 
 			lastErr = err
@@ -114,81 +160,66 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 			case <-config.timer.After(delay(config, n, err)):
 			case <-config.context.Done():
 				if config.wrapContextErrorWithLastError {
-					return Error{config.context.Err(), lastErr}
+					return emptyT, Error{config.context.Err(), lastErr}
 				}
-				return config.context.Err()
+				return emptyT, config.context.Err()
 			}
 		}
-
-		return nil
 	}
 
-	var errorLog Error
-	if !config.lastErrorOnly {
-		errorLog = make(Error, config.attempts)
-	} else {
-		errorLog = make(Error, 1)
-	}
+	errorLog := Error{}
 
 	attemptsForError := make(map[error]uint, len(config.attemptsForError))
 	for err, attempts := range config.attemptsForError {
 		attemptsForError[err] = attempts
 	}
 
-	lastErrIndex := n
 	shouldRetry := true
 	for shouldRetry {
-		err := retryableFunc()
+		t, err := retryableFunc()
+		if err == nil {
+			return t, nil
+		}
 
-		if err != nil {
-			errorLog[lastErrIndex] = unpackUnrecoverable(err)
+		errorLog = append(errorLog, unpackUnrecoverable(err))
 
-			if !config.retryIf(err) {
-				break
+		if !config.retryIf(err) {
+			break
+		}
+
+		config.onRetry(n, err)
+
+		for errToCheck, attempts := range attemptsForError {
+			if errors.Is(err, errToCheck) {
+				attempts--
+				attemptsForError[errToCheck] = attempts
+				shouldRetry = shouldRetry && attempts > 0
+			}
+		}
+
+		// if this is last attempt - don't wait
+		if n == config.attempts-1 {
+			break
+		}
+
+		select {
+		case <-config.timer.After(delay(config, n, err)):
+		case <-config.context.Done():
+			if config.lastErrorOnly {
+				return emptyT, config.context.Err()
 			}
 
-			config.onRetry(n, err)
-
-			for errToCheck, attempts := range attemptsForError {
-				if errors.Is(err, errToCheck) {
-					attempts--
-					attemptsForError[errToCheck] = attempts
-					shouldRetry = shouldRetry && attempts > 0
-				}
-			}
-
-			// if this is last attempt - don't wait
-			if n == config.attempts-1 {
-				break
-			}
-
-			select {
-			case <-config.timer.After(delay(config, n, err)):
-			case <-config.context.Done():
-				if config.lastErrorOnly {
-					return config.context.Err()
-				}
-				n++
-				errorLog[n] = config.context.Err()
-				return errorLog[:lenWithoutNil(errorLog)]
-			}
-
-		} else {
-			return nil
+			return emptyT, append(errorLog, config.context.Err())
 		}
 
 		n++
 		shouldRetry = shouldRetry && n < config.attempts
-
-		if !config.lastErrorOnly {
-			lastErrIndex = n
-		}
 	}
 
 	if config.lastErrorOnly {
-		return errorLog[lastErrIndex]
+		return emptyT, errorLog.Unwrap()
 	}
-	return errorLog[:lenWithoutNil(errorLog)]
+	return emptyT, errorLog
 }
 
 func newDefaultRetryConfig() *Config {
@@ -212,7 +243,7 @@ type Error []error
 // Error method return string representation of Error
 // It is an implementation of error interface
 func (e Error) Error() string {
-	logWithNumber := make([]string, lenWithoutNil(e))
+	logWithNumber := make([]string, len(e))
 	for i, l := range e {
 		if l != nil {
 			logWithNumber[i] = fmt.Sprintf("#%d: %s", i+1, l.Error())
@@ -256,17 +287,7 @@ When you need to unwrap all errors, you should use `WrappedErrors()` instead.
 Added in version 4.2.0.
 */
 func (e Error) Unwrap() error {
-	return e[lenWithoutNil(e)-1]
-}
-
-func lenWithoutNil(e Error) (count int) {
-	for _, v := range e {
-		if v != nil {
-			count++
-		}
-	}
-
-	return
+	return e[len(e)-1]
 }
 
 // WrappedErrors returns the list of errors that this Error is wrapping.

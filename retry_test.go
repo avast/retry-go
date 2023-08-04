@@ -11,14 +11,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDoAllFailed(t *testing.T) {
+func TestDoWithDataAllFailed(t *testing.T) {
 	var retrySum uint
-	err := Do(
-		func() error { return errors.New("test") },
+	v, err := DoWithData(
+		func() (int, error) { return 7, errors.New("test") },
 		OnRetry(func(n uint, err error) { retrySum += n }),
 		Delay(time.Nanosecond),
 	)
 	assert.Error(t, err)
+	assert.Equal(t, 0, v)
 
 	expectedErrorFormat := `All attempts fail:
 #1: test
@@ -44,7 +45,19 @@ func TestDoFirstOk(t *testing.T) {
 	)
 	assert.NoError(t, err)
 	assert.Equal(t, uint(0), retrySum, "no retry")
+}
 
+func TestDoWithDataFirstOk(t *testing.T) {
+	returnVal := 1
+
+	var retrySum uint
+	val, err := DoWithData(
+		func() (int, error) { return returnVal, nil },
+		OnRetry(func(n uint, err error) { retrySum += n }),
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, returnVal, val)
+	assert.Equal(t, uint(0), retrySum, "no retry")
 }
 
 func TestRetryIf(t *testing.T) {
@@ -563,6 +576,58 @@ func TestUnwrap(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Equal(t, testError, errors.Unwrap(err))
+}
+
+func BenchmarkDo(b *testing.B) {
+	testError := errors.New("test error")
+
+	for i := 0; i < b.N; i++ {
+		_ = Do(
+			func() error {
+				return testError
+			},
+			Attempts(10),
+			Delay(0),
+		)
+	}
+}
+
+func BenchmarkDoWithData(b *testing.B) {
+	testError := errors.New("test error")
+
+	for i := 0; i < b.N; i++ {
+		_, _ = DoWithData(
+			func() (int, error) {
+				return 0, testError
+			},
+			Attempts(10),
+			Delay(0),
+		)
+	}
+}
+
+func BenchmarkDoNoErrors(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = Do(
+			func() error {
+				return nil
+			},
+			Attempts(10),
+			Delay(0),
+		)
+	}
+}
+
+func BenchmarkDoWithDataNoErrors(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_, _ = DoWithData(
+			func() (int, error) {
+				return 0, nil
+			},
+			Attempts(10),
+			Delay(0),
+		)
+	}
 }
 
 func TestIsRecoverable(t *testing.T) {

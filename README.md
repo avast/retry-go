@@ -35,8 +35,36 @@ http get with retry:
     		return nil
     	},
     )
+    if err != nil {
+    	// handle error
+    }
 
-    fmt.Println(body)
+    fmt.Println(string(body))
+
+http get with retry with data:
+
+    url := "http://example.com"
+
+    body, err := retry.DoWithData(
+    	func() ([]byte, error) {
+    		resp, err := http.Get(url)
+    		if err != nil {
+    			return nil, err
+    		}
+    		defer resp.Body.Close()
+    		body, err := ioutil.ReadAll(resp.Body)
+    		if err != nil {
+    			return nil, err
+    		}
+
+    		return body, nil
+    	},
+    )
+    if err != nil {
+    	// handle error
+    }
+
+    fmt.Println(string(body))
 
 [next examples](https://github.com/avast/retry-go/tree/master/examples)
 
@@ -92,6 +120,12 @@ BackOffDelay is a DelayType which increases delay between consecutive retries
 
 ```go
 func Do(retryableFunc RetryableFunc, opts ...Option) error
+```
+
+#### func  DoWithData
+
+```go
+func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (T, error)
 ```
 
 #### func  FixedDelay
@@ -355,19 +389,17 @@ wait for a set duration for retries.
 
 example of augmenting time.After with a print statement
 
-type struct MyTimer {}
+    type struct MyTimer {}
 
     func (t *MyTimer) After(d time.Duration) <- chan time.Time {
         fmt.Print("Timer called!")
         return time.After(d)
     }
 
-retry.Do(
-
+    retry.Do(
         func() error { ... },
     	   retry.WithTimer(&MyTimer{})
-
-)
+    )
 
 #### func  WrapContextErrorWithLastError
 
@@ -408,6 +440,14 @@ type RetryableFunc func() error
 ```
 
 Function signature of retryable function
+
+#### type RetryableFuncWithData
+
+```go
+type RetryableFuncWithData[T any] func() (T, error)
+```
+
+Function signature of retryable function with data
 
 #### type Timer
 
