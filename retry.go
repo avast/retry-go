@@ -136,6 +136,7 @@ func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (
 	}
 
 	// Setting attempts to 0 means we'll retry until we succeed
+	var lastErr error
 	if config.attempts == 0 {
 		for {
 			t, err := retryableFunc()
@@ -151,11 +152,16 @@ func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (
 				return emptyT, err
 			}
 
+			lastErr = err
+
 			n++
 			config.onRetry(n, err)
 			select {
 			case <-config.timer.After(delay(config, n, err)):
 			case <-config.context.Done():
+				if config.wrapContextErrorWithLastError {
+					return emptyT, Error{config.context.Err(), lastErr}
+				}
 				return emptyT, config.context.Err()
 			}
 		}
