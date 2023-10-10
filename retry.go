@@ -187,8 +187,6 @@ func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (
 			break
 		}
 
-		config.onRetry(n, err)
-
 		for errToCheck, attempts := range attemptsForError {
 			if errors.Is(err, errToCheck) {
 				attempts--
@@ -196,6 +194,8 @@ func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (
 				shouldRetry = shouldRetry && attempts > 0
 			}
 		}
+
+		config.onRetry(n, err)
 
 		// if this is last attempt - don't wait
 		if n == config.attempts-1 {
