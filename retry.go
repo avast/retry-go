@@ -195,12 +195,12 @@ func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (
 			}
 		}
 
-		config.onRetry(n, err)
-
 		// if this is last attempt - don't wait
 		if n == config.attempts-1 {
 			break
 		}
+
+		config.onRetry(n, err)
 
 		select {
 		case <-config.timer.After(delay(config, n, err)):
