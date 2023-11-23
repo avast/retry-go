@@ -17,6 +17,7 @@ slightly inspired by
 
 http get with retry:
 
+```go
     url := "http://example.com"
     var body []byte
 
@@ -40,9 +41,11 @@ http get with retry:
     }
 
     fmt.Println(string(body))
+```
 
 http get with retry with data:
 
+```go
     url := "http://example.com"
 
     body, err := retry.DoWithData(
@@ -65,6 +68,7 @@ http get with retry with data:
     }
 
     fmt.Println(string(body))
+```
 
 [next examples](https://github.com/avast/retry-go/tree/master/examples)
 
