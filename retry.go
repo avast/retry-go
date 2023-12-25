@@ -87,6 +87,7 @@ http get with retry with data:
   - `retry.Retry` function are changed to `retry.Do` function
   - `retry.RetryCustom` (OnRetry) and `retry.RetryCustomWithOpts` functions are now implement via functions produces Options (aka `retry.OnRetry`)
 */
+
 package retry
 
 import (
@@ -110,6 +111,7 @@ func (t *timerImpl) After(d time.Duration) <-chan time.Time {
 	return time.After(d)
 }
 
+// Do executes the retryable function with the given options
 func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	retryableFuncWithData := func() (any, error) {
 		return nil, retryableFunc()
@@ -119,50 +121,45 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	return err
 }
 
-func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (T, error) {
-	var n uint
-	var emptyT T
+// DoWithData executes the retryable function with data with the given options
+func DoWithData[T any](retryableFunc RetryableFuncWithData[T], options ...Option) (T, error) {
+	var attemptCount uint
+	var emptyResult T
 
-	// default
+	// Default configuration
 	config := newDefaultRetryConfig()
 
-	// apply opts
-	for _, opt := range opts {
+	// Apply options
+	for _, opt := range options {
 		opt(config)
 	}
 
+	// Check if context is already done
 	if err := config.context.Err(); err != nil {
-		return emptyT, err
+		return emptyResult, err
 	}
 
 	// Setting attempts to 0 means we'll retry until we succeed
-	var lastErr error
 	if config.attempts == 0 {
 		for {
-			t, err := retryableFunc()
+			result, err := retryableFunc()
 			if err == nil {
-				return t, nil
+				return result, nil
 			}
 
-			if !IsRecoverable(err) {
-				return emptyT, err
+			if !config.retryIf(err) || !IsRecoverable(err) {
+				return emptyResult, err
 			}
 
-			if !config.retryIf(err) {
-				return emptyT, err
-			}
-
-			lastErr = err
-
-			n++
-			config.onRetry(n, err)
+			attemptCount++
+			config.onRetry(attemptCount, err)
 			select {
-			case <-config.timer.After(delay(config, n, err)):
+			case <-config.timer.After(delay(config, attemptCount, err)):
 			case <-config.context.Done():
 				if config.wrapContextErrorWithLastError {
-					return emptyT, Error{config.context.Err(), lastErr}
+					return emptyResult, Error{config.context.Err(), err}
 				}
-				return emptyT, config.context.Err()
+				return emptyResult, config.context.Err()
 			}
 		}
 	}
@@ -175,10 +172,15 @@ func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (
 	}
 
 	shouldRetry := true
+	errorCounts := make(map[error]uint, len(attemptsForError))
+	for err, attempts := range attemptsForError {
+		errorCounts[err] = attempts
+	}
+
 	for shouldRetry {
-		t, err := retryableFunc()
+		result, err := retryableFunc()
 		if err == nil {
-			return t, nil
+			return result, nil
 		}
 
 		errorLog = append(errorLog, unpackUnrecoverable(err))
@@ -187,41 +189,41 @@ func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (
 			break
 		}
 
-		config.onRetry(n, err)
+		config.onRetry(attemptCount, err) // onRetry should be called before checking attempts
 
-		for errToCheck, attempts := range attemptsForError {
-			if errors.Is(err, errToCheck) {
-				attempts--
-				attemptsForError[errToCheck] = attempts
-				shouldRetry = shouldRetry && attempts > 0
-			}
+		if attempts, ok := errorCounts[err]; ok {
+			attempts--
+			errorCounts[err] = attempts
+			shouldRetry = shouldRetry && attempts > 0
 		}
 
-		// if this is last attempt - don't wait
-		if n == config.attempts-1 {
+		// If this is the last attempt, don't wait
+		if attemptCount == config.attempts-1 {
 			break
 		}
 
 		select {
-		case <-config.timer.After(delay(config, n, err)):
+		case <-config.timer.After(delay(config, attemptCount, err)):
 		case <-config.context.Done():
 			if config.lastErrorOnly {
-				return emptyT, config.context.Err()
+				return emptyResult, config.context.Err()
 			}
 
-			return emptyT, append(errorLog, config.context.Err())
+			return emptyResult, append(errorLog, config.context.Err())
 		}
 
-		n++
-		shouldRetry = shouldRetry && n < config.attempts
+		attemptCount++
+		shouldRetry = shouldRetry && attemptCount < config.attempts
 	}
 
 	if config.lastErrorOnly {
-		return emptyT, errorLog.Unwrap()
+		return emptyResult, errorLog.Unwrap()
 	}
-	return emptyT, errorLog
+
+	return emptyResult, errorLog
 }
 
+// newDefaultRetryConfig returns the default configuration for retry
 func newDefaultRetryConfig() *Config {
 	return &Config{
 		attempts:         uint(10),
@@ -243,16 +245,17 @@ type Error []error
 // Error method return string representation of Error
 // It is an implementation of error interface
 func (e Error) Error() string {
-	logWithNumber := make([]string, len(e))
-	for i, l := range e {
-		if l != nil {
-			logWithNumber[i] = fmt.Sprintf("#%d: %s", i+1, l.Error())
+	logsWithNumbers := make([]string, len(e))
+	for i, err := range e {
+		if err != nil {
+			logsWithNumbers[i] = fmt.Sprintf("#%d: %s", i+1, err.Error())
 		}
 	}
 
-	return fmt.Sprintf("All attempts fail:\n%s", strings.Join(logWithNumber, "\n"))
+	return fmt.Sprintf("All attempts fail:\n%s", strings.Join(logsWithNumbers, "\n"))
 }
 
+// Is checks if the error list contains the target error
 func (e Error) Is(target error) bool {
 	for _, v := range e {
 		if errors.Is(v, target) {
@@ -262,6 +265,7 @@ func (e Error) Is(target error) bool {
 	return false
 }
 
+// As checks if the error list contains an error assignable to the target type
 func (e Error) As(target interface{}) bool {
 	for _, v := range e {
 		if errors.As(v, target) {
@@ -323,7 +327,7 @@ func IsRecoverable(err error) bool {
 	return !errors.Is(err, unrecoverableError{})
 }
 
-// Adds support for errors.Is usage on unrecoverableError
+// Is checks if the error is an instance of `unrecoverableError`
 func (unrecoverableError) Is(err error) bool {
 	_, isUnrecoverable := err.(unrecoverableError)
 	return isUnrecoverable
