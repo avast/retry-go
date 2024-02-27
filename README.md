@@ -17,55 +17,58 @@ slightly inspired by
 
 http get with retry:
 
-    url := "http://example.com"
-    var body []byte
+```go
+url := "http://example.com"
+var body []byte
 
-    err := retry.Do(
-    	func() error {
-    		resp, err := http.Get(url)
-    		if err != nil {
-    			return err
-    		}
-    		defer resp.Body.Close()
-    		body, err = ioutil.ReadAll(resp.Body)
-    		if err != nil {
-    			return err
-    		}
+err := retry.Do(
+    func() error {
+        resp, err := http.Get(url)
+        if err != nil {
+            return err
+        }
+        defer resp.Body.Close()
+        body, err = ioutil.ReadAll(resp.Body)
+        if err != nil {
+            return err
+        }
+	
+        return nil
+    },
+)
+if err != nil {
+    // handle error
+}
 
-    		return nil
-    	},
-    )
-    if err != nil {
-    	// handle error
-    }
-
-    fmt.Println(string(body))
+fmt.Println(string(body))
+```
 
 http get with retry with data:
 
-    url := "http://example.com"
+```go
+url := "http://example.com"
 
-    body, err := retry.DoWithData(
-    	func() ([]byte, error) {
-    		resp, err := http.Get(url)
-    		if err != nil {
-    			return nil, err
-    		}
-    		defer resp.Body.Close()
-    		body, err := ioutil.ReadAll(resp.Body)
-    		if err != nil {
-    			return nil, err
-    		}
+body, err := retry.DoWithData(
+    func() ([]byte, error) {
+        resp, err := http.Get(url)
+        if err != nil {
+            return nil, err
+        }
+        defer resp.Body.Close()
+        body, err := ioutil.ReadAll(resp.Body)
+        if err != nil {
+            return nil, err
+        }
 
-    		return body, nil
-    	},
-    )
-    if err != nil {
-    	// handle error
-    }
+        return body, nil
+    },
+)
+if err != nil {
+    // handle error
+}
 
-    fmt.Println(string(body))
-
+fmt.Println(string(body))
+```
 [next examples](https://github.com/avast/retry-go/tree/master/examples)
 
 # SEE ALSO
@@ -217,14 +220,16 @@ func (e Error) Unwrap() error
 Unwrap the last error for compatibility with `errors.Unwrap()`. When you need to
 unwrap all errors, you should use `WrappedErrors()` instead.
 
-    err := Do(
-    	func() error {
-    		return errors.New("original error")
-    	},
-    	Attempts(1),
-    )
+```go
+err := Do(
+    func() error {
+        return errors.New("original error")
+    },
+    Attempts(1),
+)
 
-    fmt.Println(errors.Unwrap(err)) # "original error" is printed
+fmt.Println(errors.Unwrap(err)) # "original error" is printed
+```
 
 Added in version 4.2.0.
 
@@ -283,15 +288,17 @@ Context allow to set context of retry default are Background context
 example of immediately cancellation (maybe it isn't the best example, but it
 describes behavior enough; I hope)
 
-    ctx, cancel := context.WithCancel(context.Background())
-    cancel()
+```go
+ctx, cancel := context.WithCancel(context.Background())
+cancel()
 
-    retry.Do(
-    	func() error {
-    		...
-    	},
-    	retry.Context(ctx),
-    )
+retry.Do(
+    func() error {
+        ...
+    },
+    retry.Context(ctx),
+)
+```
 
 #### func  Delay
 
@@ -337,16 +344,16 @@ func OnRetry(onRetry OnRetryFunc) Option
 OnRetry function callback are called each retry
 
 log each retry example:
-
-    retry.Do(
-    	func() error {
-    		return errors.New("some error")
-    	},
-    	retry.OnRetry(func(n uint, err error) {
-    		log.Printf("#%d: %s\n", n, err)
-    	}),
-    )
-
+```go
+retry.Do(
+    func() error {
+        return errors.New("some error")
+    },
+    retry.OnRetry(func(n uint, err error) {
+        log.Printf("#%d: %s\n", n, err)
+    }),
+)
+```
 #### func  RetryIf
 
 ```go
@@ -357,26 +364,30 @@ there are any retry attempts remaining)
 
 skip retry if special error example:
 
-    retry.Do(
-    	func() error {
-    		return errors.New("special error")
-    	},
-    	retry.RetryIf(func(err error) bool {
-    		if err.Error() == "special error" {
-    			return false
-    		}
-    		return true
-    	}),
-    )
+```go
+retry.Do(
+    func() error {
+        return errors.New("special error")
+    },
+    retry.RetryIf(func(err error) bool {
+        if err.Error() == "special error" {
+            return false
+        }
+	return true
+    }),
+)
+```
 
 By default RetryIf stops execution if the error is wrapped using
 `retry.Unrecoverable`, so above example may also be shortened to:
 
-    retry.Do(
-    	func() error {
-    		return retry.Unrecoverable(errors.New("special error"))
-    	}
-    )
+```go
+retry.Do(
+    func() error {
+        return retry.Unrecoverable(errors.New("special error"))
+    }
+)
+```
 
 #### func  WithTimer
 
@@ -389,17 +400,19 @@ wait for a set duration for retries.
 
 example of augmenting time.After with a print statement
 
-    type struct MyTimer {}
+```go
+type struct MyTimer {}
 
-    func (t *MyTimer) After(d time.Duration) <- chan time.Time {
-        fmt.Print("Timer called!")
-        return time.After(d)
-    }
+func (t *MyTimer) After(d time.Duration) <- chan time.Time {
+    fmt.Print("Timer called!")
+    return time.After(d)
+}
 
-    retry.Do(
-        func() error { ... },
-    	   retry.WithTimer(&MyTimer{})
-    )
+retry.Do(
+    func() error { ... },
+    retry.WithTimer(&MyTimer{})
+)
+```
 
 #### func  WrapContextErrorWithLastError
 
@@ -413,17 +426,19 @@ cancel / timeout
 
 default is false
 
-    ctx, cancel := context.WithCancel(context.Background())
-    defer cancel()
+```go
+ctx, cancel := context.WithCancel(context.Background())
+defer cancel()
 
-    retry.Do(
-    	func() error {
-    		...
-    	},
-    	retry.Context(ctx),
-    	retry.Attempts(0),
-    	retry.WrapContextErrorWithLastError(true),
-    )
+retry.Do(
+    func() error {
+        ...
+    },
+    retry.Context(ctx),
+    retry.Attempts(0),
+    retry.WrapContextErrorWithLastError(true),
+)
+```
 
 #### type RetryIfFunc
 
