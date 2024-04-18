@@ -155,8 +155,8 @@ func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (
 
 			lastErr = err
 
-			n++
 			config.onRetry(n, err)
+			n++
 			select {
 			case <-config.timer.After(delay(config, n, err)):
 			case <-config.context.Done():
