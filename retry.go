@@ -188,8 +188,6 @@ func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (
 			break
 		}
 
-		config.onRetry(n, err)
-
 		for errToCheck, attempts := range attemptsForError {
 			if errors.Is(err, errToCheck) {
 				attempts--
@@ -202,6 +200,8 @@ func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (
 		if n == config.attempts-1 {
 			break
 		}
+
+		config.onRetry(n, err)
 
 		select {
 		case <-config.timer.After(delay(config, n, err)):
