@@ -1,6 +1,6 @@
 module github.com/avast/retry-go/v4
 
-go 1.18
+go 1.20
 
 require github.com/stretchr/testify v1.10.0
 
