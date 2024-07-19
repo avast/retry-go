@@ -185,6 +185,9 @@ func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (
 		errorLog = append(errorLog, unpackUnrecoverable(err))
 
 		if !config.retryIf(err) {
+			if IsRecoverable(err) {
+				errorLog = append(errorLog, err)
+			}
 			break
 		}
 
