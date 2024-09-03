@@ -54,7 +54,7 @@ jobs:
 
     steps:
       - name: Download a linux coverage report
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4.1.7
         with:
           name: code-coverage-report-ubuntu-latest
       - name: Upload coverage to Codecov
