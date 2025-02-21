@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: 1.18
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
@@ -29,7 +29,7 @@ jobs:
       OS: ${{ matrix.os }}
       GOVERSION: ${{ matrix.go-version }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Go ${{ matrix.go-version }}
         uses: actions/setup-go@v4
         with:
@@ -43,7 +43,7 @@ jobs:
       - name: Test
         run: make ci
       - name: Archive code coverage results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: code-coverage-report-${{ matrix.os }}
           path: coverage.txt
@@ -54,11 +54,11 @@ jobs:
 
     steps:
       - name: Download a linux coverage report
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: code-coverage-report-ubuntu-latest
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
