@@ -136,38 +136,6 @@ func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (
 		return emptyT, err
 	}
 
-	// Setting attempts to 0 means we'll retry until we succeed
-	var lastErr error
-	if config.attempts == 0 {
-		for {
-			t, err := retryableFunc()
-			if err == nil {
-				return t, nil
-			}
-
-			if !IsRecoverable(err) {
-				return emptyT, err
-			}
-
-			if !config.retryIf(err) {
-				return emptyT, err
-			}
-
-			lastErr = err
-
-			config.onRetry(n, err)
-			n++
-			select {
-			case <-config.timer.After(delay(config, n, err)):
-			case <-config.context.Done():
-				if config.wrapContextErrorWithLastError {
-					return emptyT, Error{context.Cause(config.context), lastErr}
-				}
-				return emptyT, context.Cause(config.context)
-			}
-		}
-	}
-
 	errorLog := Error{}
 
 	attemptsForError := make(map[error]uint, len(config.attemptsForError))
@@ -184,6 +152,10 @@ func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (
 
 		errorLog = append(errorLog, unpackUnrecoverable(err))
 
+		if !IsRecoverable(err) {
+			return emptyT, err
+		}
+
 		if !config.retryIf(err) {
 			break
 		}
@@ -198,8 +170,9 @@ func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (
 			}
 		}
 
+		// Setting attempts to 0 means we'll retry until we succeed
 		// if this is last attempt - don't wait
-		if n == config.attempts-1 {
+		if config.attempts != 0 && n == config.attempts-1 {
 			break
 		}
 		n++
@@ -213,7 +186,6 @@ func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (
 			return emptyT, append(errorLog, context.Cause(config.context))
 		}
 
-		shouldRetry = shouldRetry && n < config.attempts
 	}
 
 	if config.lastErrorOnly {
