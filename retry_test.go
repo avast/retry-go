@@ -35,7 +35,7 @@ func TestDoWithDataAllFailed(t *testing.T) {
 	assert.Len(t, err, 10)
 	fmt.Println(err.Error())
 	assert.Equal(t, expectedErrorFormat, err.Error(), "retry error format")
-	assert.Equal(t, uint(45), retrySum, "right count of retry")
+	assert.Equal(t, uint(36), retrySum, "right count of retry")
 }
 
 func TestDoFirstOk(t *testing.T) {
@@ -630,6 +630,28 @@ func BenchmarkDoWithDataNoErrors(b *testing.B) {
 			Delay(0),
 		)
 	}
+}
+
+func TestOnRetryNotCalledOnLastAttempt(t *testing.T) {
+	callCount := 0
+	onRetryCalls := make([]uint, 0)
+	
+	err := Do(
+		func() error {
+			callCount++
+			return errors.New("test error")
+		},
+		Attempts(3),
+		OnRetry(func(n uint, err error) {
+			onRetryCalls = append(onRetryCalls, n)
+		}),
+		Delay(time.Nanosecond),
+	)
+	
+	assert.Error(t, err)
+	assert.Equal(t, 3, callCount, "function should be called 3 times")
+	assert.Equal(t, []uint{0, 1}, onRetryCalls, "onRetry should only be called for first 2 attempts, not the final one")
+	assert.Len(t, onRetryCalls, 2, "onRetry should be called exactly 2 times (not on last attempt)")
 }
 
 func TestIsRecoverable(t *testing.T) {
