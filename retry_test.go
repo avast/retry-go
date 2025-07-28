@@ -104,6 +104,7 @@ func TestRetryIf_ZeroAttempts(t *testing.T) {
 			return err.Error() != "special"
 		}),
 		Delay(time.Nanosecond),
+		LastErrorOnly(true),
 		Attempts(0),
 	)
 	assert.Error(t, err)
@@ -215,7 +216,6 @@ func TestLastErrorOnly(t *testing.T) {
 func TestUnrecoverableError(t *testing.T) {
 	attempts := 0
 	testErr := errors.New("error")
-	expectedErr := Error{testErr}
 	err := Do(
 		func() error {
 			attempts++
@@ -223,8 +223,8 @@ func TestUnrecoverableError(t *testing.T) {
 		},
 		Attempts(2),
 	)
-	assert.Equal(t, expectedErr, err)
-	assert.Equal(t, testErr, errors.Unwrap(err))
+	assert.Error(t, err)
+	assert.Equal(t, Unrecoverable(testErr), err)
 	assert.Equal(t, 1, attempts, "unrecoverable error broke the loop")
 }
 
@@ -457,6 +457,7 @@ func TestContext(t *testing.T) {
 						cancel()
 					}
 				}),
+				LastErrorOnly(true),
 				Context(ctx),
 				Attempts(0),
 			)
