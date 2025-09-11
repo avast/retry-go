@@ -458,7 +458,7 @@ func TestContext(t *testing.T) {
 					}
 				}),
 				Context(ctx),
-				Attempts(0),
+				Attempts(Infinity),
 			)
 
 			assert.Equal(t, context.Canceled, err)

@@ -107,6 +107,9 @@ type RetryableFuncWithData[T any] func() (T, error)
 // Default timer is a wrapper around time.After
 type timerImpl struct{}
 
+// Infinity means infinite retries
+const Infinity uint = 0
+
 func (t *timerImpl) After(d time.Duration) <-chan time.Time {
 	return time.After(d)
 }
