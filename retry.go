@@ -153,6 +153,10 @@ func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (
 				return emptyT, err
 			}
 
+			if errors.Is(err, context.Cause(config.context)) {
+				return emptyT, err
+			}
+
 			lastErr = err
 
 			config.onRetry(n, err)
@@ -184,7 +188,7 @@ func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (
 
 		errorLog = append(errorLog, unpackUnrecoverable(err))
 
-		if !config.retryIf(err) {
+		if !config.retryIf(err) || errors.Is(err, context.Cause(config.context)) {
 			break
 		}
 
