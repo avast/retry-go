@@ -57,6 +57,27 @@ HTTP GET with retry with data:
 
 	fmt.Println(string(body))
 
+Zero-allocation retry with reusable config (for high-frequency/hot-path usage):
+
+	// Create config once, reuse many times
+	config := retry.NewConfig(
+		retry.Attempts(5),
+		retry.Delay(100*time.Millisecond),
+	)
+
+	// Zero allocations in happy path (no retries needed)
+	for {
+		err := retry.DoWithConfig(
+			func() error {
+				return doWork()
+			},
+			config,
+		)
+		if err != nil {
+			// handle error
+		}
+	}
+
 [More examples](https://github.com/avast/retry-go/tree/master/examples)
 
 # SEE ALSO
@@ -120,10 +141,19 @@ func Do(retryableFunc RetryableFunc, opts ...Option) error {
 	return err
 }
 
-func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (T, error) {
-	var n uint
-	var emptyT T
+// DoWithConfig executes retryableFunc using a pre-built Config created via NewConfig().
+// This eliminates per-call allocations by reusing the Config across multiple retry operations.
+// The Config must not be modified after creation.
+func DoWithConfig(retryableFunc RetryableFunc, config *Config) error {
+	retryableFuncWithData := func() (any, error) {
+		return nil, retryableFunc()
+	}
 
+	_, err := DoWithDataAndConfig(retryableFuncWithData, config)
+	return err
+}
+
+func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (T, error) {
 	// default
 	config := newDefaultRetryConfig()
 
@@ -131,6 +161,16 @@ func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (
 	for _, opt := range opts {
 		opt(config)
 	}
+
+	return DoWithDataAndConfig(retryableFunc, config)
+}
+
+// DoWithDataAndConfig executes retryableFunc using a pre-built Config created via NewConfig().
+// This eliminates per-call allocations by reusing the Config across multiple retry operations.
+// The Config must not be modified after creation.
+func DoWithDataAndConfig[T any](retryableFunc RetryableFuncWithData[T], config *Config) (T, error) {
+	var n uint
+	var emptyT T
 
 	if err := context.Cause(config.context); err != nil {
 		return emptyT, err
@@ -223,18 +263,7 @@ func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (
 }
 
 func newDefaultRetryConfig() *Config {
-	return &Config{
-		attempts:         uint(10),
-		attemptsForError: make(map[error]uint),
-		delay:            100 * time.Millisecond,
-		maxJitter:        100 * time.Millisecond,
-		onRetry:          func(n uint, err error) {},
-		retryIf:          IsRecoverable,
-		delayType:        CombineDelay(BackOffDelay, RandomDelay),
-		lastErrorOnly:    false,
-		context:          context.Background(),
-		timer:            &timerImpl{},
-	}
+	return NewConfig()
 }
 
 // Error type represents list of errors in retry

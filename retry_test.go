@@ -632,6 +632,62 @@ func BenchmarkDoWithDataNoErrors(b *testing.B) {
 	}
 }
 
+func BenchmarkDoWithConfigNoErrors(b *testing.B) {
+	config := NewConfig(Attempts(10), Delay(0))
+	for i := 0; i < b.N; i++ {
+		_ = DoWithConfig(
+			func() error {
+				return nil
+			},
+			config,
+		)
+	}
+}
+
+func BenchmarkDoWithDataAndConfig_NoErrors(b *testing.B) {
+	config := NewConfig(Attempts(10), Delay(0))
+	for i := 0; i < b.N; i++ {
+		_, _ = DoWithDataAndConfig(
+			func() (int, error) {
+				return 0, nil
+			},
+			config,
+		)
+	}
+}
+
+// Benchmark retry.Do() with one retry
+func BenchmarkDo_OneRetry(b *testing.B) {
+	counter := 0
+	retryOnceFunc := func() error {
+		counter++
+		if counter%2 == 1 {
+			return errors.New("temporary error")
+		}
+		return nil
+	}
+
+	for i := 0; i < b.N; i++ {
+		_ = Do(retryOnceFunc, Delay(0))
+	}
+}
+
+func BenchmarkDoWithConfig_OneRetry(b *testing.B) {
+	counter := 0
+	retryOnceFunc := func() error {
+		counter++
+		if counter%2 == 1 {
+			return errors.New("temporary error")
+		}
+		return nil
+	}
+	config := NewConfig(Attempts(10), Delay(0))
+
+	for i := 0; i < b.N; i++ {
+		_ = DoWithConfig(retryOnceFunc, config)
+	}
+}
+
 func TestIsRecoverable(t *testing.T) {
 	err := errors.New("err")
 	assert.True(t, IsRecoverable(err))
