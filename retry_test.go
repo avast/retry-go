@@ -642,3 +642,42 @@ func TestIsRecoverable(t *testing.T) {
 	err = fmt.Errorf("wrapping: %w", err)
 	assert.False(t, IsRecoverable(err))
 }
+
+func TestNoRetryIfCtxCanceledAtemptsZero(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	var called bool
+	err := Do(
+		func() error {
+			cancel()
+			return context.Cause(ctx)
+		},
+		OnRetry(func(n uint, err error) {
+			called = true
+		}),
+		Context(ctx),
+		Attempts(0),
+	)
+	assert.Equal(t, context.Canceled, err)
+	assert.False(t, called, "OnRetry was called after cancelation")
+}
+
+func TestNoRetryIfCtxCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	var called bool
+	err := Do(
+		func() error {
+			cancel()
+			return context.Cause(ctx)
+		},
+		OnRetry(func(n uint, err error) {
+			called = true
+		}),
+		Context(ctx),
+		Attempts(5),
+		LastErrorOnly(true),
+	)
+	assert.Equal(t, context.Canceled, err)
+	assert.False(t, called, "OnRetry was called after cancelation")
+}
