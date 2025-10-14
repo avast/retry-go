@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"testing"
 	"time"
@@ -641,4 +642,72 @@ func TestIsRecoverable(t *testing.T) {
 
 	err = fmt.Errorf("wrapping: %w", err)
 	assert.False(t, IsRecoverable(err))
+}
+
+func TestFullJitterBackoffDelay(t *testing.T) {
+	// Seed for predictable randomness in tests
+	// In real usage, math/rand is auto-seeded in Go 1.20+ or should be seeded once at program start.
+	// For library test predictability, local seeding is fine.
+	// However, retry-go's RandomDelay uses global math/rand without explicit seeding in tests.
+	// Let's follow the existing pattern of not explicitly seeding in each test for now,
+	// assuming test runs are isolated enough or that exact delay values aren't asserted,
+	// but rather ranges or properties.
+
+	baseDelay := 50 * time.Millisecond
+	maxDelay := 500 * time.Millisecond
+
+	config := &Config{
+		delay:    baseDelay,
+		maxDelay: maxDelay,
+		// other fields can be zero/default for this test
+	}
+
+	attempts := []uint{0, 1, 2, 3, 4, 5, 6, 10}
+
+	for _, n := range attempts {
+		delay := FullJitterBackoffDelay(n, errors.New("test error"), config)
+
+		expectedMaxCeiling := float64(baseDelay) * math.Pow(2, float64(n))
+		if expectedMaxCeiling > float64(maxDelay) {
+			expectedMaxCeiling = float64(maxDelay)
+		}
+
+		assert.True(t, delay >= 0, "Delay should be non-negative. Got: %v for attempt %d", delay, n)
+		assert.True(t, delay <= time.Duration(expectedMaxCeiling),
+			"Delay %v should be less than or equal to current backoff ceiling %v for attempt %d", delay, time.Duration(expectedMaxCeiling), n)
+
+		t.Logf("Attempt %d: BaseDelay=%v, MaxDelay=%v, Calculated Ceiling=~%v, Actual Delay=%v",
+			n, baseDelay, maxDelay, time.Duration(expectedMaxCeiling), delay)
+
+		// Test with MaxDelay disabled (0)
+		configNoMax := &Config{delay: baseDelay, maxDelay: 0}
+		delayNoMax := FullJitterBackoffDelay(n, errors.New("test error"), configNoMax)
+		expectedCeilingNoMax := float64(baseDelay) * math.Pow(2, float64(n))
+		if expectedCeilingNoMax > float64(10*time.Minute) { // Avoid overflow for very large N
+			expectedCeilingNoMax = float64(10 * time.Minute)
+		}
+		assert.True(t, delayNoMax >= 0, "Delay (no max) should be non-negative. Got: %v for attempt %d", delayNoMax, n)
+		assert.True(t, delayNoMax <= time.Duration(expectedCeilingNoMax),
+			"Delay (no max) %v should be less than or equal to current backoff ceiling %v for attempt %d", delayNoMax, time.Duration(expectedCeilingNoMax), n)
+	}
+
+	// Test case where baseDelay might be zero
+	configZeroBase := &Config{delay: 0, maxDelay: maxDelay}
+	delayZeroBase := FullJitterBackoffDelay(0, errors.New("test error"), configZeroBase)
+	assert.Equal(t, time.Duration(0), delayZeroBase, "Delay with zero base delay should be 0")
+
+	delayZeroBaseAttempt1 := FullJitterBackoffDelay(1, errors.New("test error"), configZeroBase)
+	assert.Equal(t, time.Duration(0), delayZeroBaseAttempt1, "Delay with zero base delay (attempt > 0) should be 0")
+
+	// Test with very small base delay
+	smallBaseDelay := 1 * time.Nanosecond
+	configSmallBase := &Config{delay: smallBaseDelay, maxDelay: 100 * time.Nanosecond}
+	for i := uint(0); i < 5; i++ {
+		d := FullJitterBackoffDelay(i, errors.New("test"), configSmallBase)
+		ceil := float64(smallBaseDelay) * math.Pow(2, float64(i))
+		if ceil > 100 {
+			ceil = 100
+		}
+		assert.True(t, d <= time.Duration(ceil))
+	}
 }
