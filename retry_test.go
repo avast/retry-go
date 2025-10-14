@@ -295,7 +295,7 @@ func TestBackOffDelay(t *testing.T) {
 			delay:         -1,
 			expectedMaxN:  62,
 			n:             2,
-			expectedDelay: 4,
+			expectedDelay: 2,
 		},
 		{
 			label:         "zero-delay",
@@ -310,6 +310,13 @@ func TestBackOffDelay(t *testing.T) {
 			expectedMaxN:  33,
 			n:             62,
 			expectedDelay: time.Second << 33,
+		},
+		{
+			label:         "one-second-n",
+			delay:         time.Second,
+			expectedMaxN:  33,
+			n:             1,
+			expectedDelay: time.Second,
 		},
 	} {
 		t.Run(
@@ -490,7 +497,7 @@ func TestContext(t *testing.T) {
 	})
 
 	t.Run("timed out on retry infinte attempts - wraps context error with last retried function error", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*500)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*200)
 		defer cancel()
 
 		retrySum := 0

@@ -124,6 +124,8 @@ func BackOffDelay(n uint, _ error, config *Config) time.Duration {
 		config.maxBackOffN = max - uint(math.Floor(math.Log2(float64(config.delay))))
 	}
 
+	n--
+
 	if n > config.maxBackOffN {
 		n = config.maxBackOffN
 	}
