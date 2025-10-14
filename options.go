@@ -35,11 +35,46 @@ type Config struct {
 	timer                         Timer
 	wrapContextErrorWithLastError bool
 
-	maxBackOffN uint
+	maxBackOffN uint // pre-computed for BackOffDelay, immutable after NewConfig()
 }
 
 // Option represents an option for retry.
 type Option func(*Config)
+
+// NewConfig creates a new immutable Config with the given options.
+// The returned Config can be safely reused across multiple retry operations.
+// This pre-computes values like maxBackOffN, eliminating allocations
+// and mutations during retry execution.
+func NewConfig(opts ...Option) *Config {
+	// Start with defaults
+	config := &Config{
+		attempts:         uint(10),
+		attemptsForError: make(map[error]uint),
+		delay:            100 * time.Millisecond,
+		maxJitter:        100 * time.Millisecond,
+		onRetry:          func(n uint, err error) {},
+		retryIf:          IsRecoverable,
+		delayType:        CombineDelay(BackOffDelay, RandomDelay),
+		lastErrorOnly:    false,
+		context:          context.Background(),
+		timer:            &timerImpl{},
+	}
+
+	// Apply options
+	for _, opt := range opts {
+		opt(config)
+	}
+
+	// 1 << 63 would overflow signed int64 (time.Duration), thus 62.
+	const maxBackOffN uint = 62
+	if config.delay <= 0 {
+		config.delay = 1
+	}
+	// Pre-compute maxBackOffN for BackOffDelay
+	config.maxBackOffN = maxBackOffN - uint(math.Floor(math.Log2(float64(config.delay))))
+
+	return config
+}
 
 func emptyOption(c *Config) {}
 
@@ -113,19 +148,20 @@ func DelayType(delayType DelayTypeFunc) Option {
 
 // BackOffDelay is a DelayType which increases delay between consecutive retries
 func BackOffDelay(n uint, _ error, config *Config) time.Duration {
-	// 1 << 63 would overflow signed int64 (time.Duration), thus 62.
-	const max uint = 62
-
+	// maxBackOffN should be pre-computed by NewConfig() or newDefaultRetryConfig()
+	// For backward compatibility, compute and cache it if not set (legacy code path)
 	if config.maxBackOffN == 0 {
+		// Legacy path for configs not created via NewConfig()
+		const max uint = 62
 		if config.delay <= 0 {
 			config.delay = 1
 		}
-
 		config.maxBackOffN = max - uint(math.Floor(math.Log2(float64(config.delay))))
 	}
 
-	if n > config.maxBackOffN {
-		n = config.maxBackOffN
+	maxBackOffN := config.maxBackOffN
+	if n > maxBackOffN {
+		n = maxBackOffN
 	}
 
 	return config.delay << n
