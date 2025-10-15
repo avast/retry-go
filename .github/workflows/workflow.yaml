@@ -15,9 +15,8 @@ jobs:
         with:
           go-version: stable
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
+        run: make lint
+
   tests:
     runs-on: ${{ matrix.os }}
     strategy:
