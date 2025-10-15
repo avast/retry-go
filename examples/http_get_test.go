@@ -2,7 +2,7 @@ package retry_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,7 +13,7 @@ import (
 
 func TestGet(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "hello")
+		_, _ = fmt.Fprintln(w, "hello")
 	}))
 	defer ts.Close()
 
@@ -29,7 +29,7 @@ func TestGet(t *testing.T) {
 						panic(err)
 					}
 				}()
-				body, err = ioutil.ReadAll(resp.Body)
+				body, err = io.ReadAll(resp.Body)
 			}
 
 			return err

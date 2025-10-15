@@ -2,7 +2,7 @@ package retry_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -35,12 +35,14 @@ func TestCustomRetryFunction(t *testing.T) {
 			// HTTP 429 status code with Retry-After header in seconds
 			w.Header().Add("Retry-After", "1")
 			w.WriteHeader(http.StatusTooManyRequests)
-			w.Write([]byte("Server limit reached"))
+			// ignore error for the sake of the example
+			_, _ = w.Write([]byte("Server limit reached"))
 			attempts--
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("hello"))
+		// ignore error for the sake of the example
+		_, _ = w.Write([]byte("hello"))
 	}))
 	defer ts.Close()
 
@@ -56,7 +58,7 @@ func TestCustomRetryFunction(t *testing.T) {
 						panic(err)
 					}
 				}()
-				body, err = ioutil.ReadAll(resp.Body)
+				body, err = io.ReadAll(resp.Body)
 				if resp.StatusCode != 200 {
 					err = fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
 					if resp.StatusCode == http.StatusTooManyRequests {

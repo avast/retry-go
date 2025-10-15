@@ -3,7 +3,7 @@ TEST_PATTERN?=.
 TEST_OPTIONS?=
 VERSION?=$$(cat VERSION)
 LINTER?=$$(which golangci-lint)
-LINTER_VERSION=1.50.0
+LINTER_VERSION=2.5.0
 
 ifeq ($(OS),Windows_NT)
 	LINTER_FILE=golangci-lint-$(LINTER_VERSION)-windows-amd64.zip
@@ -37,12 +37,7 @@ fmt: ## gofmt and goimports all go files
 	find . -name '*.go' -not -wholename './vendor/*' | while read -r file; do gofmt -w -s "$$file"; goimports -w "$$file"; done
 
 lint: ## Run all the linters
-	@if [ "$(LINTER)" = "" ]; then\
-		curl -L https://github.com/golangci/golangci-lint/releases/download/v$(LINTER_VERSION)/$(LINTER_FILE) $(LINTER_UNPACK) ;\
-		chmod +x $$GOPATH/bin/golangci-lint;\
-	fi
-
-	golangci-lint run
+	docker run --rm -v $$(pwd):/app -w /app golangci/golangci-lint:v$(LINTER_VERSION) golangci-lint run
 
 ci: test_and_cover_report ## Run all the tests but no linters - use https://golangci.com integration instead
 

@@ -136,6 +136,17 @@ func FixedDelay(_ uint, _ error, config *Config) time.Duration
 ```
 FixedDelay is a DelayType which keeps delay the same through all iterations
 
+#### func  FullJitterBackoffDelay
+
+```go
+func FullJitterBackoffDelay(n uint, err error, config *Config) time.Duration
+```
+FullJitterBackoffDelay is a DelayTypeFunc that calculates delay using
+exponential backoff with full jitter. The delay is a random value between 0 and
+the current backoff ceiling. Formula: sleep = random_between(0, min(cap, base *
+2^attempt)) It uses config.Delay as the base delay and config.MaxDelay as the
+cap.
+
 #### func  IsRecoverable
 
 ```go

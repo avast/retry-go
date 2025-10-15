@@ -30,6 +30,7 @@ func TestErrorHistory(t *testing.T) {
 			if err != nil {
 				return err
 			}
+			// nolint:errcheck
 			defer resp.Body.Close()
 			if resp.StatusCode != 200 {
 				return fmt.Errorf("failed HTTP - %d", resp.StatusCode)
