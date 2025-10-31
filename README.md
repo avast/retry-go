@@ -5,7 +5,7 @@
 ![GitHub Actions](https://github.com/avast/retry-go/actions/workflows/workflow.yaml/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/avast/retry-go?style=flat-square)](https://goreportcard.com/report/github.com/avast/retry-go)
 [![Go Reference](https://pkg.go.dev/badge/github.com/avast/retry-go/v4.svg)](https://pkg.go.dev/github.com/avast/retry-go/v4)
-[![codecov.io](https://codecov.io/github/avast/retry-go/coverage.svg?branch=master)](https://codecov.io/github/avast/retry-go?branch=master)
+[![codecov.io](https://codecov.io/github/avast/retry-go/coverage.svg?branch=main)](https://codecov.io/github/avast/retry-go?branch=main)
 [![Sourcegraph](https://sourcegraph.com/github.com/avast/retry-go/-/badge.svg)](https://sourcegraph.com/github.com/avast/retry-go?badge)
 
 Simple library for retry mechanism
@@ -67,7 +67,7 @@ HTTP GET with retry with data:
 
     fmt.Println(string(body))
 
-[More examples](https://github.com/avast/retry-go/tree/master/examples)
+[More examples](https://github.com/avast/retry-go/tree/main/examples)
 
 # SEE ALSO
 

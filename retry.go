@@ -57,7 +57,7 @@ HTTP GET with retry with data:
 
 	fmt.Println(string(body))
 
-[More examples](https://github.com/avast/retry-go/tree/master/examples)
+[More examples](https://github.com/avast/retry-go/tree/main/examples)
 
 # SEE ALSO
 
