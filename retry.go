@@ -61,6 +61,8 @@ HTTP GET with retry with data:
 
 # SEE ALSO
 
+* [codeGROOVE-dev/retry](https://github.com/codeGROOVE-dev/retry) - Modern fork of avast/retry-go/v4 focused on correctness, reliability and efficiency. 100% API-compatible drop-in replacement. Looks really good.
+
 * [giantswarm/retry-go](https://github.com/giantswarm/retry-go) - slightly complicated interface.
 
 * [sethgrid/pester](https://github.com/sethgrid/pester) - only http retry for http calls with retries and backoff

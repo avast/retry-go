@@ -71,6 +71,10 @@ HTTP GET with retry with data:
 
 # SEE ALSO
 
+* [codeGROOVE-dev/retry](https://github.com/codeGROOVE-dev/retry) - Modern fork
+of avast/retry-go/v4 focused on correctness, reliability and efficiency. 100%
+API-compatible drop-in replacement. Looks really good.
+
 * [giantswarm/retry-go](https://github.com/giantswarm/retry-go) - slightly
 complicated interface.
 
@@ -317,7 +321,8 @@ Delay set delay between retry default is 100ms
 ```go
 func DelayType(delayType DelayTypeFunc) Option
 ```
-DelayType set type of the delay between retries default is BackOff
+DelayType set type of the delay between retries default is a combination of
+BackOffDelay and RandomDelay for exponential backoff with jitter
 
 #### func  LastErrorOnly
 
