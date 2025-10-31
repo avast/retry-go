@@ -101,7 +101,7 @@ func MaxJitter(maxJitter time.Duration) Option {
 }
 
 // DelayType set type of the delay between retries
-// default is BackOff
+// default is a combination of BackOffDelay and RandomDelay for exponential backoff with jitter
 func DelayType(delayType DelayTypeFunc) Option {
 	if delayType == nil {
 		return emptyOption
