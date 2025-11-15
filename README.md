@@ -20,7 +20,10 @@ HTTP GET with retry:
     url := "http://example.com"
     var body []byte
 
-    err := retry.Do(
+    err := retry.New(
+    	retry.Attempts(5),
+    	retry.Delay(100*time.Millisecond),
+    ).Do(
     	func() error {
     		resp, err := http.Get(url)
     		if err != nil {
@@ -45,7 +48,7 @@ HTTP GET with retry with data:
 
     url := "http://example.com"
 
-    body, err := retry.DoWithData(
+    body, err := retry.DoWithData(retry.New(),
     	func() ([]byte, error) {
     		resp, err := http.Get(url)
     		if err != nil {
@@ -66,6 +69,26 @@ HTTP GET with retry with data:
     }
 
     fmt.Println(string(body))
+
+Reusable retrier for high-frequency retry operations:
+
+    // Create retrier once, reuse many times
+    retrier := retry.New(
+    	retry.Attempts(5),
+    	retry.Delay(100*time.Millisecond),
+    )
+
+    // Minimal allocations in happy path
+    for {
+    	err := retrier.Do(
+    		func() error {
+    			return doWork()
+    		},
+    	)
+    	if err != nil {
+    		// handle error
+    	}
+    }
 
 [More examples](https://github.com/avast/retry-go/tree/main/examples)
 
@@ -93,6 +116,16 @@ nonintuitive interface (for me)
 
 # BREAKING CHANGES
 
+* 5.0.0
+
+    - Complete API redesign: method-based retry operations
+    - Renamed `Config` type to `Retrier`
+    - Renamed `NewConfig()` to `New()`
+    - Changed from package-level functions to methods: `retry.Do(func, config)` → `retry.New(opts...).Do(func)`
+    - `DelayTypeFunc` signature changed: `func(n uint, err error, config *Config)` → `func(n uint, err error, r *Retrier)`
+    - Migration: `retry.Do(func, opts...)` → `retry.New(opts...).Do(func)` (simple find & replace)
+    - This change improves performance, simplifies the API, and provides a cleaner interface
+
 * 4.0.0
 
     - infinity retry is possible by set `Attempts(0)` by PR [#49](https://github.com/avast/retry-go/pull/49)
@@ -117,33 +150,21 @@ nonintuitive interface (for me)
 #### func  BackOffDelay
 
 ```go
-func BackOffDelay(n uint, _ error, config *Config) time.Duration
+func BackOffDelay(n uint, _ error, config DelayContext) time.Duration
 ```
 BackOffDelay is a DelayType which increases delay between consecutive retries
-
-#### func  Do
-
-```go
-func Do(retryableFunc RetryableFunc, opts ...Option) error
-```
-
-#### func  DoWithData
-
-```go
-func DoWithData[T any](retryableFunc RetryableFuncWithData[T], opts ...Option) (T, error)
-```
 
 #### func  FixedDelay
 
 ```go
-func FixedDelay(_ uint, _ error, config *Config) time.Duration
+func FixedDelay(_ uint, _ error, config DelayContext) time.Duration
 ```
 FixedDelay is a DelayType which keeps delay the same through all iterations
 
 #### func  FullJitterBackoffDelay
 
 ```go
-func FullJitterBackoffDelay(n uint, err error, config *Config) time.Duration
+func FullJitterBackoffDelay(n uint, err error, config DelayContext) time.Duration
 ```
 FullJitterBackoffDelay is a DelayTypeFunc that calculates delay using
 exponential backoff with full jitter. The delay is a random value between 0 and
@@ -161,9 +182,9 @@ IsRecoverable checks if error is an instance of `unrecoverableError`
 #### func  RandomDelay
 
 ```go
-func RandomDelay(_ uint, _ error, config *Config) time.Duration
+func RandomDelay(_ uint, _ error, config DelayContext) time.Duration
 ```
-RandomDelay is a DelayType which picks a random delay up to config.maxJitter
+RandomDelay is a DelayType which picks a random delay up to maxJitter
 
 #### func  Unrecoverable
 
@@ -172,18 +193,23 @@ func Unrecoverable(err error) error
 ```
 Unrecoverable wraps an error in `unrecoverableError` struct
 
-#### type Config
+#### type DelayContext
 
 ```go
-type Config struct {
+type DelayContext interface {
+	Delay() time.Duration
+	MaxJitter() time.Duration
+	MaxBackOffN() uint
+	MaxDelay() time.Duration
 }
 ```
 
+DelayContext provides configuration values needed for delay calculation.
 
 #### type DelayTypeFunc
 
 ```go
-type DelayTypeFunc func(n uint, err error, config *Config) time.Duration
+type DelayTypeFunc func(n uint, err error, config DelayContext) time.Duration
 ```
 
 DelayTypeFunc is called to return the next delay to wait after the retriable
@@ -265,7 +291,7 @@ Function signature of OnRetry function
 #### type Option
 
 ```go
-type Option func(*Config)
+type Option func(*retrierCore)
 ```
 
 Option represents an option for retry.
@@ -302,7 +328,7 @@ describes behavior enough; I hope)
     ctx, cancel := context.WithCancel(context.Background())
     cancel()
 
-    retry.Do(
+    retry.New().Do(
     	func() error {
     		...
     	},
@@ -355,7 +381,7 @@ OnRetry function callback are called each retry
 
 log each retry example:
 
-    retry.Do(
+    retry.New().Do(
     	func() error {
     		return errors.New("some error")
     	},
@@ -374,7 +400,7 @@ there are any retry attempts remaining)
 
 skip retry if special error example:
 
-    retry.Do(
+    retry.New().Do(
     	func() error {
     		return errors.New("special error")
     	},
@@ -389,7 +415,7 @@ skip retry if special error example:
 By default RetryIf stops execution if the error is wrapped using
 `retry.Unrecoverable`, so above example may also be shortened to:
 
-    retry.Do(
+    retry.New().Do(
     	func() error {
     		return retry.Unrecoverable(errors.New("special error"))
     	}
@@ -421,7 +447,7 @@ example of augmenting time.After with a print statement
         return time.After(d)
     }
 
-    retry.Do(
+    retry.New().Do(
         func() error { ... },
     	   retry.WithTimer(&MyTimer{})
     )
@@ -441,7 +467,7 @@ default is false
     ctx, cancel := context.WithCancel(context.Background())
     defer cancel()
 
-    retry.Do(
+    retry.New().Do(
     	func() error {
     		...
     	},
@@ -449,6 +475,110 @@ default is false
     	retry.Attempts(0),
     	retry.WrapContextErrorWithLastError(true),
     )
+
+#### type Retrier
+
+```go
+type Retrier struct {
+}
+```
+
+Retrier is for retry operations that return only an error.
+
+#### func  New
+
+```go
+func New(opts ...Option) *Retrier
+```
+New creates a new Retrier with the given options. The returned Retrier can be
+safely reused across multiple retry operations.
+
+#### func (Retrier) Delay
+
+```go
+func (r Retrier) Delay() time.Duration
+```
+Delay implements DelayContext
+
+#### func (*Retrier) Do
+
+```go
+func (r *Retrier) Do(retryableFunc RetryableFunc) error
+```
+Do executes the retryable function using this Retrier's configuration.
+
+#### func (Retrier) MaxBackOffN
+
+```go
+func (r Retrier) MaxBackOffN() uint
+```
+MaxBackOffN implements DelayContext
+
+#### func (Retrier) MaxDelay
+
+```go
+func (r Retrier) MaxDelay() time.Duration
+```
+MaxDelay implements DelayContext
+
+#### func (Retrier) MaxJitter
+
+```go
+func (r Retrier) MaxJitter() time.Duration
+```
+MaxJitter implements DelayContext
+
+#### type RetrierWithData
+
+```go
+type RetrierWithData[T any] struct {
+}
+```
+
+RetrierWithData is for retry operations that return data and an error.
+
+#### func  NewWithData
+
+```go
+func NewWithData[T any](opts ...Option) *RetrierWithData[T]
+```
+NewWithData creates a new RetrierWithData[T] with the given options. The
+returned retrier can be safely reused across multiple retry operations.
+
+#### func (RetrierWithData) Delay
+
+```go
+func (r RetrierWithData) Delay() time.Duration
+```
+Delay implements DelayContext
+
+#### func (*RetrierWithData[T]) Do
+
+```go
+func (r *RetrierWithData[T]) Do(retryableFunc RetryableFuncWithData[T]) (T, error)
+```
+Do executes the retryable function using this RetrierWithData's configuration.
+
+#### func (RetrierWithData) MaxBackOffN
+
+```go
+func (r RetrierWithData) MaxBackOffN() uint
+```
+MaxBackOffN implements DelayContext
+
+#### func (RetrierWithData) MaxDelay
+
+```go
+func (r RetrierWithData) MaxDelay() time.Duration
+```
+MaxDelay implements DelayContext
+
+#### func (RetrierWithData) MaxJitter
+
+```go
+func (r RetrierWithData) MaxJitter() time.Duration
+```
+MaxJitter implements DelayContext
 
 #### type RetryIfFunc
 

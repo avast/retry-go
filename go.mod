@@ -1,4 +1,4 @@
-module github.com/avast/retry-go/v4
+module github.com/avast/retry-go/v5
 
 go 1.20
 
