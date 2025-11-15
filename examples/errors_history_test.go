@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/avast/retry-go/v4"
+	"github.com/avast/retry-go/v5"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,7 +24,11 @@ func TestErrorHistory(t *testing.T) {
 	}))
 	defer ts.Close()
 	var allErrors []error
-	err := retry.Do(
+	err := retry.New(
+		retry.OnRetry(func(n uint, err error) {
+			allErrors = append(allErrors, err)
+		}),
+	).Do(
 		func() error {
 			resp, err := http.Get(ts.URL)
 			if err != nil {
@@ -37,9 +41,6 @@ func TestErrorHistory(t *testing.T) {
 			}
 			return nil
 		},
-		retry.OnRetry(func(n uint, err error) {
-			allErrors = append(allErrors, err)
-		}),
 	)
 	assert.NoError(t, err)
 	assert.Len(t, allErrors, 3)

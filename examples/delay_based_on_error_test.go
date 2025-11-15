@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/avast/retry-go/v4"
+	"github.com/avast/retry-go/v5"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -44,7 +44,21 @@ func TestCustomRetryFunctionBasedOnKindOfError(t *testing.T) {
 
 	var body []byte
 
-	err := retry.Do(
+	err := retry.New(
+		retry.DelayType(func(n uint, err error, config retry.DelayContext) time.Duration {
+			switch e := err.(type) {
+			case RetryAfterError:
+				if t, err := parseRetryAfter(e.response.Header.Get("Retry-After")); err == nil {
+					return time.Until(t)
+				}
+			case SomeOtherError:
+				return e.retryAfter
+			}
+
+			// default is backoffdelay
+			return retry.BackOffDelay(n, err, config)
+		}),
+	).Do(
 		func() error {
 			resp, err := http.Get(ts.URL)
 
@@ -59,19 +73,6 @@ func TestCustomRetryFunctionBasedOnKindOfError(t *testing.T) {
 
 			return err
 		},
-		retry.DelayType(func(n uint, err error, config *retry.Config) time.Duration {
-			switch e := err.(type) {
-			case RetryAfterError:
-				if t, err := parseRetryAfter(e.response.Header.Get("Retry-After")); err == nil {
-					return time.Until(t)
-				}
-			case SomeOtherError:
-				return e.retryAfter
-			}
-
-			//default is backoffdelay
-			return retry.BackOffDelay(n, err, config)
-		}),
 	)
 
 	assert.NoError(t, err)

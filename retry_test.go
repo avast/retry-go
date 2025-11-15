@@ -14,10 +14,11 @@ import (
 
 func TestDoWithDataAllFailed(t *testing.T) {
 	var retrySum uint
-	v, err := DoWithData(
-		func() (int, error) { return 7, errors.New("test") },
+	v, err := NewWithData[int](
 		OnRetry(func(n uint, err error) { retrySum += n }),
 		Delay(time.Nanosecond),
+	).Do(
+		func() (int, error) { return 7, errors.New("test") },
 	)
 	assert.Error(t, err)
 	assert.Equal(t, 0, v)
@@ -41,9 +42,10 @@ func TestDoWithDataAllFailed(t *testing.T) {
 
 func TestDoFirstOk(t *testing.T) {
 	var retrySum uint
-	err := Do(
-		func() error { return nil },
+	err := New(
 		OnRetry(func(n uint, err error) { retrySum += n }),
+	).Do(
+		func() error { return nil },
 	)
 	assert.NoError(t, err)
 	assert.Equal(t, uint(0), retrySum, "no retry")
@@ -53,9 +55,10 @@ func TestDoWithDataFirstOk(t *testing.T) {
 	returnVal := 1
 
 	var retrySum uint
-	val, err := DoWithData(
-		func() (int, error) { return returnVal, nil },
+	val, err := NewWithData[int](
 		OnRetry(func(n uint, err error) { retrySum += n }),
+	).Do(
+		func() (int, error) { return returnVal, nil },
 	)
 	assert.NoError(t, err)
 	assert.Equal(t, returnVal, val)
@@ -64,7 +67,13 @@ func TestDoWithDataFirstOk(t *testing.T) {
 
 func TestRetryIf(t *testing.T) {
 	var retryCount uint
-	err := Do(
+	err := New(
+		OnRetry(func(n uint, err error) { retryCount++ }),
+		RetryIf(func(err error) bool {
+			return err.Error() != "special"
+		}),
+		Delay(time.Nanosecond),
+	).Do(
 		func() error {
 			if retryCount >= 2 {
 				return errors.New("special")
@@ -72,11 +81,6 @@ func TestRetryIf(t *testing.T) {
 				return errors.New("test")
 			}
 		},
-		OnRetry(func(n uint, err error) { retryCount++ }),
-		RetryIf(func(err error) bool {
-			return err.Error() != "special"
-		}),
-		Delay(time.Nanosecond),
 	)
 	assert.Error(t, err)
 
@@ -91,7 +95,14 @@ func TestRetryIf(t *testing.T) {
 
 func TestRetryIf_ZeroAttempts(t *testing.T) {
 	var retryCount, onRetryCount uint
-	err := Do(
+	err := New(
+		OnRetry(func(n uint, err error) { onRetryCount = n }),
+		RetryIf(func(err error) bool {
+			return err.Error() != "special"
+		}),
+		Delay(time.Nanosecond),
+		Attempts(0),
+	).Do(
 		func() error {
 			if retryCount >= 2 {
 				return errors.New("special")
@@ -100,12 +111,6 @@ func TestRetryIf_ZeroAttempts(t *testing.T) {
 				return errors.New("test")
 			}
 		},
-		OnRetry(func(n uint, err error) { onRetryCount = n }),
-		RetryIf(func(err error) bool {
-			return err.Error() != "special"
-		}),
-		Delay(time.Nanosecond),
-		Attempts(0),
 	)
 	assert.Error(t, err)
 
@@ -117,7 +122,10 @@ func TestZeroAttemptsWithError(t *testing.T) {
 	const maxErrors = 999
 	count := 0
 
-	err := Do(
+	err := New(
+		Attempts(0),
+		MaxDelay(time.Nanosecond),
+	).Do(
 		func() error {
 			if count < maxErrors {
 				count += 1
@@ -126,8 +134,6 @@ func TestZeroAttemptsWithError(t *testing.T) {
 
 			return nil
 		},
-		Attempts(0),
-		MaxDelay(time.Nanosecond),
 	)
 	assert.NoError(t, err)
 
@@ -137,13 +143,14 @@ func TestZeroAttemptsWithError(t *testing.T) {
 func TestZeroAttemptsWithoutError(t *testing.T) {
 	count := 0
 
-	err := Do(
+	err := New(
+		Attempts(0),
+	).Do(
 		func() error {
 			count++
 
 			return nil
 		},
-		Attempts(0),
 	)
 	assert.NoError(t, err)
 
@@ -151,12 +158,13 @@ func TestZeroAttemptsWithoutError(t *testing.T) {
 }
 
 func TestZeroAttemptsWithUnrecoverableError(t *testing.T) {
-	err := Do(
+	err := New(
+		Attempts(0),
+		MaxDelay(time.Nanosecond),
+	).Do(
 		func() error {
 			return Unrecoverable(assert.AnError)
 		},
-		Attempts(0),
-		MaxDelay(time.Nanosecond),
 	)
 	assert.Error(t, err)
 	assert.Equal(t, Unrecoverable(assert.AnError), err)
@@ -166,13 +174,14 @@ func TestAttemptsForError(t *testing.T) {
 	count := uint(0)
 	testErr := os.ErrInvalid
 	attemptsForTestError := uint(3)
-	err := Do(
+	err := New(
+		AttemptsForError(attemptsForTestError, testErr),
+		Attempts(5),
+	).Do(
 		func() error {
 			count++
 			return testErr
 		},
-		AttemptsForError(attemptsForTestError, testErr),
-		Attempts(5),
 	)
 	assert.Error(t, err)
 	assert.Equal(t, attemptsForTestError, count)
@@ -180,9 +189,10 @@ func TestAttemptsForError(t *testing.T) {
 
 func TestDefaultSleep(t *testing.T) {
 	start := time.Now()
-	err := Do(
-		func() error { return errors.New("test") },
+	err := New(
 		Attempts(3),
+	).Do(
+		func() error { return errors.New("test") },
 	)
 	dur := time.Since(start)
 	assert.Error(t, err)
@@ -191,10 +201,11 @@ func TestDefaultSleep(t *testing.T) {
 
 func TestFixedSleep(t *testing.T) {
 	start := time.Now()
-	err := Do(
-		func() error { return errors.New("test") },
+	err := New(
 		Attempts(3),
 		DelayType(FixedDelay),
+	).Do(
+		func() error { return errors.New("test") },
 	)
 	dur := time.Since(start)
 	assert.Error(t, err)
@@ -203,11 +214,12 @@ func TestFixedSleep(t *testing.T) {
 
 func TestLastErrorOnly(t *testing.T) {
 	var retrySum uint
-	err := Do(
-		func() error { return fmt.Errorf("%d", retrySum) },
+	err := New(
 		OnRetry(func(n uint, err error) { retrySum += 1 }),
 		Delay(time.Nanosecond),
 		LastErrorOnly(true),
+	).Do(
+		func() error { return fmt.Errorf("%d", retrySum) },
 	)
 	assert.Error(t, err)
 	assert.Equal(t, "9", err.Error())
@@ -217,12 +229,13 @@ func TestUnrecoverableError(t *testing.T) {
 	attempts := 0
 	testErr := errors.New("error")
 	expectedErr := Error{testErr}
-	err := Do(
+	err := New(
+		Attempts(2),
+	).Do(
 		func() error {
 			attempts++
 			return Unrecoverable(testErr)
 		},
-		Attempts(2),
 	)
 	assert.Equal(t, expectedErr, err)
 	assert.Equal(t, testErr, errors.Unwrap(err))
@@ -235,10 +248,11 @@ func TestCombineFixedDelays(t *testing.T) {
 	}
 
 	start := time.Now()
-	err := Do(
-		func() error { return errors.New("test") },
+	err := New(
 		Attempts(3),
 		DelayType(CombineDelay(FixedDelay, FixedDelay)),
+	).Do(
+		func() error { return errors.New("test") },
 	)
 	dur := time.Since(start)
 	assert.Error(t, err)
@@ -252,11 +266,12 @@ func TestRandomDelay(t *testing.T) {
 	}
 
 	start := time.Now()
-	err := Do(
-		func() error { return errors.New("test") },
+	err := New(
 		Attempts(3),
 		DelayType(RandomDelay),
 		MaxJitter(50*time.Millisecond),
+	).Do(
+		func() error { return errors.New("test") },
 	)
 	dur := time.Since(start)
 	assert.Error(t, err)
@@ -270,11 +285,12 @@ func TestMaxDelay(t *testing.T) {
 	}
 
 	start := time.Now()
-	err := Do(
-		func() error { return errors.New("test") },
+	err := New(
 		Attempts(5),
 		Delay(10*time.Millisecond),
 		MaxDelay(50*time.Millisecond),
+	).Do(
+		func() error { return errors.New("test") },
 	)
 	dur := time.Since(start)
 	assert.Error(t, err)
@@ -295,14 +311,14 @@ func TestBackOffDelay(t *testing.T) {
 			delay:         -1,
 			expectedMaxN:  62,
 			n:             2,
-			expectedDelay: 2,
+			expectedDelay: 0,
 		},
 		{
 			label:         "zero-delay",
 			delay:         0,
 			expectedMaxN:  62,
 			n:             65,
-			expectedDelay: 1 << 62,
+			expectedDelay: 0,
 		},
 		{
 			label:         "one-second",
@@ -322,11 +338,9 @@ func TestBackOffDelay(t *testing.T) {
 		t.Run(
 			c.label,
 			func(t *testing.T) {
-				config := Config{
-					delay: c.delay,
-				}
-				delay := BackOffDelay(c.n, nil, &config)
-				assert.Equal(t, c.expectedMaxN, config.maxBackOffN, "max n mismatch")
+				retrier := New(Delay(c.delay))
+				delay := BackOffDelay(c.n, nil, retrier)
+				assert.Equal(t, c.expectedMaxN, retrier.maxBackOffN, "max n mismatch")
 				assert.Equal(t, c.expectedDelay, delay, "delay duration mismatch")
 			},
 		)
@@ -335,7 +349,7 @@ func TestBackOffDelay(t *testing.T) {
 
 func TestCombineDelay(t *testing.T) {
 	f := func(d time.Duration) DelayTypeFunc {
-		return func(_ uint, _ error, _ *Config) time.Duration {
+		return func(_ uint, _ error, _ DelayContext) time.Duration {
 			return d
 		}
 	}
@@ -395,10 +409,11 @@ func TestContext(t *testing.T) {
 
 		retrySum := 0
 		start := time.Now()
-		err := Do(
-			func() error { return errors.New("test") },
+		err := New(
 			OnRetry(func(n uint, err error) { retrySum += 1 }),
 			Context(ctx),
+		).Do(
+			func() error { return errors.New("test") },
 		)
 		dur := time.Since(start)
 		assert.Error(t, err)
@@ -410,8 +425,7 @@ func TestContext(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 
 		retrySum := 0
-		err := Do(
-			func() error { return errors.New("test") },
+		err := New(
 			OnRetry(func(n uint, err error) {
 				retrySum += 1
 				if retrySum > 1 {
@@ -419,6 +433,8 @@ func TestContext(t *testing.T) {
 				}
 			}),
 			Context(ctx),
+		).Do(
+			func() error { return errors.New("test") },
 		)
 		assert.Error(t, err)
 
@@ -435,8 +451,7 @@ func TestContext(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 
 		retrySum := 0
-		err := Do(
-			func() error { return errors.New("test") },
+		err := New(
 			OnRetry(func(n uint, err error) {
 				retrySum += 1
 				if retrySum > 1 {
@@ -445,6 +460,8 @@ func TestContext(t *testing.T) {
 			}),
 			Context(ctx),
 			LastErrorOnly(true),
+		).Do(
+			func() error { return errors.New("test") },
 		)
 		assert.Equal(t, context.Canceled, err)
 
@@ -456,8 +473,7 @@ func TestContext(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 
 			retrySum := 0
-			err := Do(
-				func() error { return errors.New("test") },
+			err := New(
 				OnRetry(func(n uint, err error) {
 					fmt.Println(n)
 					retrySum += 1
@@ -467,6 +483,8 @@ func TestContext(t *testing.T) {
 				}),
 				Context(ctx),
 				Attempts(0),
+			).Do(
+				func() error { return errors.New("test") },
 			)
 
 			assert.Equal(t, context.Canceled, err)
@@ -480,8 +498,7 @@ func TestContext(t *testing.T) {
 		defer cancel()
 
 		retrySum := 0
-		err := Do(
-			func() error { return fooErr{str: fmt.Sprintf("error %d", retrySum+1)} },
+		err := New(
 			OnRetry(func(n uint, err error) {
 				retrySum += 1
 				if retrySum == 2 {
@@ -491,6 +508,8 @@ func TestContext(t *testing.T) {
 			Context(ctx),
 			Attempts(0),
 			WrapContextErrorWithLastError(true),
+		).Do(
+			func() error { return fooErr{str: fmt.Sprintf("error %d", retrySum+1)} },
 		)
 		assert.ErrorIs(t, err, context.Canceled)
 		assert.ErrorIs(t, err, fooErr{str: "error 2"})
@@ -501,14 +520,15 @@ func TestContext(t *testing.T) {
 		defer cancel()
 
 		retrySum := 0
-		err := Do(
-			func() error { return fooErr{str: fmt.Sprintf("error %d", retrySum+1)} },
+		err := New(
 			OnRetry(func(n uint, err error) {
 				retrySum += 1
 			}),
 			Context(ctx),
 			Attempts(0),
 			WrapContextErrorWithLastError(true),
+		).Do(
+			func() error { return fooErr{str: fmt.Sprintf("error %d", retrySum+1)} },
 		)
 		assert.ErrorIs(t, err, context.DeadlineExceeded)
 		assert.ErrorIs(t, err, fooErr{str: "error 2"})
@@ -526,16 +546,16 @@ func (t *testTimer) After(d time.Duration) <-chan time.Time {
 
 func TestTimerInterface(t *testing.T) {
 	var timer testTimer
-	err := Do(
-		func() error { return errors.New("test") },
+	err := New(
 		Attempts(1),
 		Delay(10*time.Millisecond),
 		MaxDelay(50*time.Millisecond),
 		WithTimer(&timer),
+	).Do(
+		func() error { return errors.New("test") },
 	)
 
 	assert.Error(t, err)
-
 }
 
 func TestErrorIs(t *testing.T) {
@@ -577,66 +597,53 @@ func TestErrorAs(t *testing.T) {
 
 func TestUnwrap(t *testing.T) {
 	testError := errors.New("test error")
-	err := Do(
+	err := New(
+		Attempts(1),
+	).Do(
 		func() error {
 			return testError
 		},
-		Attempts(1),
 	)
 
 	assert.Error(t, err)
 	assert.Equal(t, testError, errors.Unwrap(err))
 }
 
-func BenchmarkDo(b *testing.B) {
-	testError := errors.New("test error")
-
+func BenchmarkDo_ImmediateSuccess(b *testing.B) {
+	retrier := New(Attempts(10), Delay(0))
 	for i := 0; i < b.N; i++ {
-		_ = Do(
-			func() error {
-				return testError
-			},
-			Attempts(10),
-			Delay(0),
-		)
-	}
-}
-
-func BenchmarkDoWithData(b *testing.B) {
-	testError := errors.New("test error")
-
-	for i := 0; i < b.N; i++ {
-		_, _ = DoWithData(
-			func() (int, error) {
-				return 0, testError
-			},
-			Attempts(10),
-			Delay(0),
-		)
-	}
-}
-
-func BenchmarkDoNoErrors(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		_ = Do(
+		_ = retrier.Do(
 			func() error {
 				return nil
 			},
-			Attempts(10),
-			Delay(0),
 		)
 	}
 }
 
-func BenchmarkDoWithDataNoErrors(b *testing.B) {
+func BenchmarkDoWithData_ImmediateSuccess(b *testing.B) {
+	retrier := NewWithData[int](Attempts(10), Delay(0))
 	for i := 0; i < b.N; i++ {
-		_, _ = DoWithData(
+		_, _ = retrier.Do(
 			func() (int, error) {
 				return 0, nil
 			},
-			Attempts(10),
-			Delay(0),
 		)
+	}
+}
+
+func BenchmarkDo_OneRetry(b *testing.B) {
+	counter := 0
+	retryOnceFunc := func() error {
+		counter++
+		if counter%2 == 1 {
+			return errors.New("temporary error")
+		}
+		return nil
+	}
+	retrier := New(Attempts(10), Delay(0))
+
+	for i := 0; i < b.N; i++ {
+		_ = retrier.Do(retryOnceFunc)
 	}
 }
 
@@ -663,11 +670,7 @@ func TestFullJitterBackoffDelay(t *testing.T) {
 	baseDelay := 50 * time.Millisecond
 	maxDelay := 500 * time.Millisecond
 
-	config := &Config{
-		delay:    baseDelay,
-		maxDelay: maxDelay,
-		// other fields can be zero/default for this test
-	}
+	config := New(Delay(baseDelay), MaxDelay(maxDelay))
 
 	attempts := []uint{0, 1, 2, 3, 4, 5, 6, 10}
 
@@ -687,7 +690,7 @@ func TestFullJitterBackoffDelay(t *testing.T) {
 			n, baseDelay, maxDelay, time.Duration(expectedMaxCeiling), delay)
 
 		// Test with MaxDelay disabled (0)
-		configNoMax := &Config{delay: baseDelay, maxDelay: 0}
+		configNoMax := New(Delay(baseDelay))
 		delayNoMax := FullJitterBackoffDelay(n, errors.New("test error"), configNoMax)
 		expectedCeilingNoMax := float64(baseDelay) * math.Pow(2, float64(n))
 		if expectedCeilingNoMax > float64(10*time.Minute) { // Avoid overflow for very large N
@@ -699,7 +702,7 @@ func TestFullJitterBackoffDelay(t *testing.T) {
 	}
 
 	// Test case where baseDelay might be zero
-	configZeroBase := &Config{delay: 0, maxDelay: maxDelay}
+	configZeroBase := New(Delay(0), MaxDelay(maxDelay))
 	delayZeroBase := FullJitterBackoffDelay(0, errors.New("test error"), configZeroBase)
 	assert.Equal(t, time.Duration(0), delayZeroBase, "Delay with zero base delay should be 0")
 
@@ -708,7 +711,7 @@ func TestFullJitterBackoffDelay(t *testing.T) {
 
 	// Test with very small base delay
 	smallBaseDelay := 1 * time.Nanosecond
-	configSmallBase := &Config{delay: smallBaseDelay, maxDelay: 100 * time.Nanosecond}
+	configSmallBase := New(Delay(smallBaseDelay), MaxDelay(100*time.Nanosecond))
 	for i := uint(0); i < 5; i++ {
 		d := FullJitterBackoffDelay(i, errors.New("test"), configSmallBase)
 		ceil := float64(smallBaseDelay) * math.Pow(2, float64(i))

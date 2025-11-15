@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/avast/retry-go/v4"
+	"github.com/avast/retry-go/v5"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -48,7 +48,17 @@ func TestCustomRetryFunction(t *testing.T) {
 
 	var body []byte
 
-	err := retry.Do(
+	err := retry.New(
+		retry.DelayType(func(n uint, err error, config retry.DelayContext) time.Duration {
+			fmt.Println("Server fails with: " + err.Error())
+			if retriable, ok := err.(*RetriableError); ok {
+				fmt.Printf("Client follows server recommendation to retry after %v\n", retriable.RetryAfter)
+				return retriable.RetryAfter
+			}
+			// apply a default exponential back off strategy
+			return retry.BackOffDelay(n, err, config)
+		}),
+	).Do(
 		func() error {
 			resp, err := http.Get(ts.URL)
 
@@ -81,15 +91,6 @@ func TestCustomRetryFunction(t *testing.T) {
 
 			return err
 		},
-		retry.DelayType(func(n uint, err error, config *retry.Config) time.Duration {
-			fmt.Println("Server fails with: " + err.Error())
-			if retriable, ok := err.(*RetriableError); ok {
-				fmt.Printf("Client follows server recommendation to retry after %v\n", retriable.RetryAfter)
-				return retriable.RetryAfter
-			}
-			// apply a default exponential back off strategy
-			return retry.BackOffDelay(n, err, config)
-		}),
 	)
 
 	fmt.Println("Server responds with: " + string(body))
