@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/avast/retry-go/v4"
+	"github.com/avast/retry-go/v5"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,7 +19,7 @@ func TestGet(t *testing.T) {
 
 	var body []byte
 
-	err := retry.Do(
+	err := retry.New().Do(
 		func() error {
 			resp, err := http.Get(ts.URL)
 

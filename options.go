@@ -13,15 +13,25 @@ type RetryIfFunc func(error) bool
 // Function signature of OnRetry function
 type OnRetryFunc func(attempt uint, err error)
 
+// DelayContext provides configuration values needed for delay calculation.
+type DelayContext interface {
+	Delay() time.Duration
+	MaxJitter() time.Duration
+	MaxBackOffN() uint
+	MaxDelay() time.Duration
+}
+
 // DelayTypeFunc is called to return the next delay to wait after the retriable function fails on `err` after `n` attempts.
-type DelayTypeFunc func(n uint, err error, config *Config) time.Duration
+type DelayTypeFunc func(n uint, err error, config DelayContext) time.Duration
 
 // Timer represents the timer used to track time for a retry.
 type Timer interface {
 	After(time.Duration) <-chan time.Time
 }
 
-type Config struct {
+// retrierCore holds the core configuration and business logic for retry operations.
+// this is then used by Retrier and RetrierWithData public APIs
+type retrierCore struct {
 	attempts                      uint
 	attemptsForError              map[error]uint
 	delay                         time.Duration
@@ -35,34 +45,105 @@ type Config struct {
 	timer                         Timer
 	wrapContextErrorWithLastError bool
 
-	maxBackOffN uint
+	maxBackOffN uint // pre-computed for BackOffDelay, immutable after New()
+}
+
+// Delay implements DelayContext
+func (r *retrierCore) Delay() time.Duration {
+	return r.delay
+}
+
+// MaxJitter implements DelayContext
+func (r *retrierCore) MaxJitter() time.Duration {
+	return r.maxJitter
+}
+
+// MaxBackOffN implements DelayContext
+func (r *retrierCore) MaxBackOffN() uint {
+	return r.maxBackOffN
+}
+
+// MaxDelay implements DelayContext
+func (r *retrierCore) MaxDelay() time.Duration {
+	return r.maxDelay
+}
+
+// Retrier is for retry operations that return only an error.
+type Retrier struct {
+	*retrierCore
+}
+
+// RetrierWithData is for retry operations that return data and an error.
+type RetrierWithData[T any] struct {
+	*retrierCore
 }
 
 // Option represents an option for retry.
-type Option func(*Config)
+type Option func(*retrierCore)
 
-func emptyOption(c *Config) {}
+func newRetrieerCore(opts ...Option) *retrierCore {
+	core := &retrierCore{
+		attempts:         uint(10),
+		attemptsForError: make(map[error]uint),
+		delay:            100 * time.Millisecond,
+		maxJitter:        100 * time.Millisecond,
+		onRetry:          func(n uint, err error) {},
+		retryIf:          IsRecoverable,
+		delayType:        CombineDelay(BackOffDelay, RandomDelay),
+		lastErrorOnly:    false,
+		context:          context.Background(),
+		timer:            &timerImpl{},
+	}
+
+	for _, opt := range opts {
+		opt(core)
+	}
+
+	const maxBackOffN uint = 62
+	core.maxBackOffN = maxBackOffN
+	if core.delay < 0 {
+		core.delay = 0
+	} else if core.delay > 0 {
+		core.maxBackOffN = maxBackOffN - uint(math.Floor(math.Log2(float64(core.delay))))
+	}
+
+	return core
+}
+
+// New creates a new Retrier with the given options.
+// The returned Retrier can be safely reused across multiple retry operations.
+func New(opts ...Option) *Retrier {
+	return &Retrier{retrierCore: newRetrieerCore(opts...)}
+}
+
+// NewWithData creates a new RetrierWithData[T] with the given options.
+// The returned retrier can be safely reused across multiple retry operations.
+func NewWithData[T any](opts ...Option) *RetrierWithData[T] {
+	return &RetrierWithData[T]{retrierCore: newRetrieerCore(opts...)}
+}
+
+func emptyOption(r *retrierCore) {}
 
 // return the direct last error that came from the retried function
 // default is false (return wrapped errors with everything)
 func LastErrorOnly(lastErrorOnly bool) Option {
-	return func(c *Config) {
-		c.lastErrorOnly = lastErrorOnly
+	return func(r *retrierCore) {
+		r.lastErrorOnly = lastErrorOnly
 	}
 }
 
 // Attempts set count of retry. Setting to 0 will retry until the retried function succeeds.
 // default is 10
 func Attempts(attempts uint) Option {
-	return func(c *Config) {
-		c.attempts = attempts
+	return func(r *retrierCore) {
+		r.attempts = attempts
 	}
 }
 
 // UntilSucceeded will retry until the retried function succeeds. Equivalent to setting Attempts(0).
 func UntilSucceeded() Option {
-	return func(c *Config) {
-		c.attempts = 0
+	return func(r *retrierCore) {
+		r.attempts = 0
 	}
 }
 
@@ -72,31 +153,31 @@ func UntilSucceeded() Option {
 //
 // added in 4.3.0
 func AttemptsForError(attempts uint, err error) Option {
-	return func(c *Config) {
-		c.attemptsForError[err] = attempts
+	return func(r *retrierCore) {
+		r.attemptsForError[err] = attempts
 	}
 }
 
 // Delay set delay between retry
 // default is 100ms
 func Delay(delay time.Duration) Option {
-	return func(c *Config) {
-		c.delay = delay
+	return func(r *retrierCore) {
+		r.delay = delay
 	}
 }
 
 // MaxDelay set maximum delay between retry
 // does not apply by default
 func MaxDelay(maxDelay time.Duration) Option {
-	return func(c *Config) {
-		c.maxDelay = maxDelay
+	return func(r *retrierCore) {
+		r.maxDelay = maxDelay
 	}
 }
 
 // MaxJitter sets the maximum random Jitter between retries for RandomDelay
 func MaxJitter(maxJitter time.Duration) Option {
-	return func(c *Config) {
-		c.maxJitter = maxJitter
+	return func(r *retrierCore) {
+		r.maxJitter = maxJitter
 	}
 }
 
@@ -106,48 +187,40 @@ func DelayType(delayType DelayTypeFunc) Option {
 	if delayType == nil {
 		return emptyOption
 	}
-	return func(c *Config) {
-		c.delayType = delayType
+	return func(r *retrierCore) {
+		r.delayType = delayType
 	}
 }
 
 // BackOffDelay is a DelayType which increases delay between consecutive retries
-func BackOffDelay(n uint, _ error, config *Config) time.Duration {
-	// 1 << 63 would overflow signed int64 (time.Duration), thus 62.
-	const max uint = 62
-
-	if config.maxBackOffN == 0 {
-		if config.delay <= 0 {
-			config.delay = 1
-		}
-
-		config.maxBackOffN = max - uint(math.Floor(math.Log2(float64(config.delay))))
-	}
-
+func BackOffDelay(n uint, _ error, config DelayContext) time.Duration {
+	maxBackOffN := config.MaxBackOffN()
 	n--
-
-	if n > config.maxBackOffN {
-		n = config.maxBackOffN
+	if n > maxBackOffN {
+		n = maxBackOffN
 	}
-
-	return config.delay << n
+	return config.Delay() << n
 }
 
 // FixedDelay is a DelayType which keeps delay the same through all iterations
-func FixedDelay(_ uint, _ error, config *Config) time.Duration {
-	return config.delay
+func FixedDelay(_ uint, _ error, config DelayContext) time.Duration {
+	return config.Delay()
 }
 
-// RandomDelay is a DelayType which picks a random delay up to config.maxJitter
-func RandomDelay(_ uint, _ error, config *Config) time.Duration {
-	return time.Duration(rand.Int63n(int64(config.maxJitter)))
+// RandomDelay is a DelayType which picks a random delay up to maxJitter
+func RandomDelay(_ uint, _ error, config DelayContext) time.Duration {
+	maxJitter := config.MaxJitter()
+	if maxJitter == 0 {
+		return 0
+	}
+	return time.Duration(rand.Int63n(int64(maxJitter)))
 }
 
 // CombineDelay is a DelayType the combines all of the specified delays into a new DelayTypeFunc
 func CombineDelay(delays ...DelayTypeFunc) DelayTypeFunc {
 	const maxInt64 = uint64(math.MaxInt64)
 
-	return func(n uint, err error, config *Config) time.Duration {
+	return func(n uint, err error, config DelayContext) time.Duration {
 		var total uint64
 		for _, delay := range delays {
 			total += uint64(delay(n, err, config))
@@ -164,10 +237,10 @@ func CombineDelay(delays ...DelayTypeFunc) DelayTypeFunc {
 // with full jitter. The delay is a random value between 0 and the current backoff ceiling.
 // Formula: sleep = random_between(0, min(cap, base * 2^attempt))
 // It uses config.Delay as the base delay and config.MaxDelay as the cap.
-func FullJitterBackoffDelay(n uint, err error, config *Config) time.Duration {
+func FullJitterBackoffDelay(n uint, err error, config DelayContext) time.Duration {
 	// Calculate the exponential backoff ceiling for the current attempt
-	backoffCeiling := float64(config.delay) * math.Pow(2, float64(n))
-	currentCap := float64(config.maxDelay)
+	backoffCeiling := float64(config.Delay()) * math.Pow(2, float64(n))
+	currentCap := float64(config.MaxDelay())
 
 	// If MaxDelay is set and backoffCeiling exceeds it, cap at MaxDelay
 	if currentCap > 0 && backoffCeiling > currentCap {
@@ -193,7 +266,7 @@ func FullJitterBackoffDelay(n uint, err error, config *Config) time.Duration {
 //
 // log each retry example:
 //
-//	retry.Do(
+//	retry.New().Do(
 //		func() error {
 //			return errors.New("some error")
 //		},
@@ -205,8 +278,8 @@ func OnRetry(onRetry OnRetryFunc) Option {
 	if onRetry == nil {
 		return emptyOption
 	}
-	return func(c *Config) {
-		c.onRetry = onRetry
+	return func(r *retrierCore) {
+		r.onRetry = onRetry
 	}
 }
 
@@ -215,7 +288,7 @@ func OnRetry(onRetry OnRetryFunc) Option {
 //
 // skip retry if special error example:
 //
-//	retry.Do(
+//	retry.New().Do(
 //		func() error {
 //			return errors.New("special error")
 //		},
@@ -230,7 +303,7 @@ func OnRetry(onRetry OnRetryFunc) Option {
 // By default RetryIf stops execution if the error is wrapped using `retry.Unrecoverable`,
 // so above example may also be shortened to:
 //
-//	retry.Do(
+//	retry.New().Do(
 //		func() error {
 //			return retry.Unrecoverable(errors.New("special error"))
 //		}
@@ -239,8 +312,8 @@ func RetryIf(retryIf RetryIfFunc) Option {
 	if retryIf == nil {
 		return emptyOption
 	}
-	return func(c *Config) {
-		c.retryIf = retryIf
+	return func(r *retrierCore) {
+		r.retryIf = retryIf
 	}
 }
 
@@ -252,15 +325,15 @@ func RetryIf(retryIf RetryIfFunc) Option {
 //	ctx, cancel := context.WithCancel(context.Background())
 //	cancel()
 //
-//	retry.Do(
+//	retry.New().Do(
 //		func() error {
 //			...
 //		},
 //		retry.Context(ctx),
 //	)
 func Context(ctx context.Context) Option {
-	return func(c *Config) {
-		c.context = ctx
+	return func(r *retrierCore) {
+		r.context = ctx
 	}
 }
 
@@ -277,13 +350,13 @@ func Context(ctx context.Context) Option {
 //	    return time.After(d)
 //	}
 //
-//	retry.Do(
+//	retry.New().Do(
 //	    func() error { ... },
 //		   retry.WithTimer(&MyTimer{})
 //	)
 func WithTimer(t Timer) Option {
-	return func(c *Config) {
-		c.timer = t
+	return func(r *retrierCore) {
+		r.timer = t
 	}
 }
 
@@ -296,7 +369,7 @@ func WithTimer(t Timer) Option {
 //	ctx, cancel := context.WithCancel(context.Background())
 //	defer cancel()
 //
-//	retry.Do(
+//	retry.New().Do(
 //		func() error {
 //			...
 //		},
@@ -305,7 +378,7 @@ func WithTimer(t Timer) Option {
 //		retry.WrapContextErrorWithLastError(true),
 //	)
 func WrapContextErrorWithLastError(wrapContextErrorWithLastError bool) Option {
-	return func(c *Config) {
-		c.wrapContextErrorWithLastError = wrapContextErrorWithLastError
+	return func(r *retrierCore) {
+		r.wrapContextErrorWithLastError = wrapContextErrorWithLastError
 	}
 }
