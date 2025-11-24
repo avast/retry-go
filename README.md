@@ -125,6 +125,8 @@ nonintuitive interface (for me)
     - `DelayTypeFunc` signature changed: `func(n uint, err error, config *Config)` → `func(n uint, err error, r *Retrier)`
     - Migration: `retry.Do(func, opts...)` → `retry.New(opts...).Do(func)` (simple find & replace)
     - This change improves performance, simplifies the API, and provides a cleaner interface
+    - `Unwrap()` now returns `[]error` instead of `error` to support Go 1.20 multiple error wrapping.
+    - `errors.Unwrap(err)` will now return `nil` (same as `errors.Join`). Use `errors.Is` or `errors.As` to inspect wrapped errors.
 
 * 4.0.0
 
@@ -251,24 +253,69 @@ error interface
 func (e Error) Is(target error) bool
 ```
 
+#### func (Error) LastError
+
+```go
+func (e Error) LastError() error
+```
+LastError returns the last error in the error list.
+
+This is a convenience method for users migrating from retry-go v4.x where
+errors.Unwrap(err) returned the last error. In v5.0.0, errors.Unwrap(err)
+returns nil due to the switch to Unwrap() []error for Go 1.20 compatibility.
+
+Migration example:
+
+    // v4.x code:
+    lastErr := errors.Unwrap(retryErr)
+
+    // v5.0.0 code (option 1 - recommended):
+    if errors.Is(retryErr, specificError) { ... }
+
+    // v5.0.0 code (option 2 - if you need the last error):
+    lastErr := retryErr.(retry.Error).LastError()
+
+Note: Using errors.Is or errors.As is preferred as they check ALL wrapped
+errors, not just the last one.
+
 #### func (Error) Unwrap
 
 ```go
-func (e Error) Unwrap() error
+func (e Error) Unwrap() []error
 ```
-Unwrap the last error for compatibility with `errors.Unwrap()`. When you need to
-unwrap all errors, you should use `WrappedErrors()` instead.
+Unwrap returns the list of errors that this Error is wrapping.
 
-    err := Do(
-    	func() error {
-    		return errors.New("original error")
-    	},
-    	Attempts(1),
-    )
+This method implements the Unwrap() []error interface introduced in Go 1.20 for
+multi-error unwrapping. This allows errors.Is and errors.As to traverse all
+wrapped errors, not just the last one.
 
-    fmt.Println(errors.Unwrap(err)) # "original error" is printed
+IMPORTANT: errors.Unwrap(err) will return nil because the standard library's
+errors.Unwrap function only calls Unwrap() error, not Unwrap() []error. This is
+the same behavior as errors.Join in Go 1.20.
 
-Added in version 4.2.0.
+Example - Use errors.Is to check for specific errors:
+
+    err := retry.New(retry.Attempts(3)).Do(func() error {
+    	return os.ErrNotExist
+    })
+    if errors.Is(err, os.ErrNotExist) {
+    	// Handle not exist error
+    }
+
+Example - Use errors.As to extract error details:
+
+    var pathErr *fs.PathError
+    if errors.As(err, &pathErr) {
+    	fmt.Println("Failed at path:", pathErr.Path)
+    }
+
+Example - Get the last error directly (for migration):
+
+    if retryErr, ok := err.(retry.Error); ok {
+    	lastErr := retryErr.LastError()
+    }
+
+See also: LastError() for direct access to the last error.
 
 #### func (Error) WrappedErrors
 
