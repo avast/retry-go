@@ -238,7 +238,7 @@ func TestUnrecoverableError(t *testing.T) {
 		},
 	)
 	assert.Equal(t, expectedErr, err)
-	assert.Equal(t, testErr, errors.Unwrap(err))
+	assert.Nil(t, errors.Unwrap(err))
 	assert.Equal(t, 1, attempts, "unrecoverable error broke the loop")
 }
 
@@ -606,7 +606,62 @@ func TestUnwrap(t *testing.T) {
 	)
 
 	assert.Error(t, err)
-	assert.Equal(t, testError, errors.Unwrap(err))
+	assert.Nil(t, errors.Unwrap(err))
+
+	// Check for Go 1.20 Unwrap() []error
+	type unwrapper interface {
+		Unwrap() []error
+	}
+	u, ok := err.(unwrapper)
+	assert.True(t, ok)
+	assert.Equal(t, []error{testError}, u.Unwrap())
+}
+
+func TestWrappedErrors(t *testing.T) {
+	testError := errors.New("test error")
+	err := New(
+		Attempts(1),
+	).Do(
+		func() error {
+			return testError
+		},
+	)
+
+	assert.Error(t, err)
+
+	type wrapper interface {
+		WrappedErrors() []error
+	}
+	w, ok := err.(wrapper)
+	assert.True(t, ok)
+	assert.Equal(t, []error{testError}, w.WrappedErrors())
+}
+
+func TestErrorsUnwrapReturnsNil(t *testing.T) {
+	err1 := errors.New("error 1")
+	err2 := errors.New("error 2")
+
+	retryErr := Error{err1, err2}
+
+	// IMPORTANT: errors.Unwrap only calls Unwrap() error, NOT Unwrap() []error
+	// Since retry.Error implements Unwrap() []error (like errors.Join),
+	// errors.Unwrap returns nil. This is the correct Go 1.20 behavior.
+	// See: https://pkg.go.dev/errors#Unwrap
+	unwrapped := errors.Unwrap(retryErr)
+	assert.Nil(t, unwrapped, "errors.Unwrap should return nil for retry.Error")
+
+	// However, errors.Is and errors.As DO work with Unwrap() []error
+	// They traverse the error tree using either Unwrap() method
+	assert.True(t, errors.Is(retryErr, err1), "errors.Is should work with first error")
+	assert.True(t, errors.Is(retryErr, err2), "errors.Is should work with second error")
+
+	// Verify errors.As also works
+	customErr := &fooErr{str: "custom"}
+	retryErr2 := Error{customErr}
+
+	var target *fooErr
+	assert.True(t, errors.As(retryErr2, &target), "errors.As should work")
+	assert.Equal(t, "custom", target.str)
 }
 
 func BenchmarkDo_ImmediateSuccess(b *testing.B) {
