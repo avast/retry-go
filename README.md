@@ -48,7 +48,7 @@ HTTP GET with retry with data:
 
     url := "http://example.com"
 
-    body, err := retry.DoWithData(retry.New(),
+    body, err := retry.NewWithData[[]byte]().Do(
     	func() ([]byte, error) {
     		resp, err := http.Get(url)
     		if err != nil {
@@ -122,8 +122,10 @@ nonintuitive interface (for me)
     - Renamed `Config` type to `Retrier`
     - Renamed `NewConfig()` to `New()`
     - Changed from package-level functions to methods: `retry.Do(func, config)` → `retry.New(opts...).Do(func)`
+    - Changed `DoWithData` from package-level function to method: `retry.DoWithData(func, opts...)` → `retry.NewWithData[T](opts...).Do(func)`
     - `DelayTypeFunc` signature changed: `func(n uint, err error, config *Config)` → `func(n uint, err error, r *Retrier)`
-    - Migration: `retry.Do(func, opts...)` → `retry.New(opts...).Do(func)` (simple find & replace)
+    - Migration for `Do`: `retry.Do(func, opts...)` → `retry.New(opts...).Do(func)` (simple find & replace)
+    - Migration for `DoWithData`: `retry.DoWithData(func, opts...)` → `retry.NewWithData[T](opts...).Do(func)` where `T` is your return type
     - This change improves performance, simplifies the API, and provides a cleaner interface
     - `Unwrap()` now returns `[]error` instead of `error` to support Go 1.20 multiple error wrapping.
     - `errors.Unwrap(err)` will now return `nil` (same as `errors.Join`). Use `errors.Is` or `errors.As` to inspect wrapped errors.
