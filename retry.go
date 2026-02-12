@@ -103,7 +103,7 @@ Reusable retrier for high-frequency retry operations:
   - Renamed `Config` type to `Retrier`
   - Renamed `NewConfig()` to `New()`
   - Changed from package-level functions to methods: `retry.Do(func, config)` → `retry.New(opts...).Do(func)`
-  - Changed `DoWithData` from package-level function to method: `retry.DoWithData(func, opts...)` → `retry.NewWithData[T](opts...).Do(func)`
+  - Replaced package-level `DoWithData` with typed retrier: `retry.DoWithData(func, opts...)` → `retry.NewWithData[T](opts...).Do(func)`
   - `DelayTypeFunc` signature changed: `func(n uint, err error, config *Config)` → `func(n uint, err error, r *Retrier)`
   - Migration for `Do`: `retry.Do(func, opts...)` → `retry.New(opts...).Do(func)` (simple find & replace)
   - Migration for `DoWithData`: `retry.DoWithData(func, opts...)` → `retry.NewWithData[T](opts...).Do(func)` where `T` is your return type
