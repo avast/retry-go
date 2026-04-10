@@ -8,6 +8,16 @@ import (
 )
 
 func TestNewFixTokenBucketThrottleValidationAndDefaults(t *testing.T) {
+	t.Run("defaults MaxCapacity when zero", func(t *testing.T) {
+		m := NewFixTokenBucketThrottle(FixTokenBucketThrottleConfig{
+			MaxCapacity:         0,
+			ThrottleCost:        5,
+			FirstSuccessRelease: 1,
+		})
+		assert.Equal(t, int64(defaultMaxCapacity), m.retryPool.maxCapacity)
+		assert.Equal(t, int64(defaultMaxCapacity), m.retryPool.available)
+	})
+
 	t.Run("panics on negative throttle cost", func(t *testing.T) {
 		assert.PanicsWithValue(t, "ThrottleCost must be positive, got -1", func() {
 			_ = NewFixTokenBucketThrottle(FixTokenBucketThrottleConfig{
@@ -106,7 +116,7 @@ func TestFixTokenBucketThrottleManagerBehavior(t *testing.T) {
 	})
 }
 
-func TestWithFixTokenBucketThrottleOption(t *testing.T) {
+func TestWithThrottleOption(t *testing.T) {
 	t.Run("throttle gates retries", func(t *testing.T) {
 		manager := NewFixTokenBucketThrottle(FixTokenBucketThrottleConfig{
 			MaxCapacity:         5,
@@ -194,5 +204,98 @@ func TestWithFixTokenBucketThrottleOption(t *testing.T) {
 		err = retrier.Do(func() error { return nil })
 		assert.NoError(t, err)
 		assert.Equal(t, int64(1), manager.retryPool.available, "expected FirstSuccessRelease when attempt == 0")
+	})
+}
+
+func TestWithFixTokenBucketThrottleOption(t *testing.T) {
+	t.Run("throttle gates retries", func(t *testing.T) {
+		retrier := New(
+			Attempts(10),
+			Delay(0),
+			MaxJitter(0),
+			WithFixTokenBucketThrottle(FixTokenBucketThrottleConfig{
+				MaxCapacity:         5,
+				ThrottleCost:        5,
+				FirstSuccessRelease: 1,
+			}),
+		)
+
+		calls := 0
+		err := retrier.Do(func() error {
+			calls++
+			return errors.New("always fails")
+		})
+		assert.Error(t, err)
+		assert.Equal(t, 2, calls, "expected throttled stop after capacity exhausted")
+	})
+
+	t.Run("throttle is replenished on success across runs", func(t *testing.T) {
+		retrier := New(
+			Attempts(10),
+			Delay(0),
+			MaxJitter(0),
+			WithFixTokenBucketThrottle(FixTokenBucketThrottleConfig{
+				MaxCapacity:         5,
+				ThrottleCost:        5,
+				FirstSuccessRelease: 1,
+			}),
+		)
+
+		// First run: fail once, then succeed.
+		calls := 0
+		err := retrier.Do(func() error {
+			calls++
+			if calls == 1 {
+				return errors.New("fail once")
+			}
+			return nil
+		})
+		assert.NoError(t, err)
+		assert.Equal(t, 2, calls, "expected one retry before success")
+
+		// Second run: always fail. If the throttle wasn't replenished, we'd stop after 1 call.
+		calls = 0
+		err = retrier.Do(func() error {
+			calls++
+			return errors.New("always fails")
+		})
+		assert.Error(t, err)
+		assert.Equal(t, 2, calls, "expected throttled stop after capacity exhausted")
+	})
+
+	t.Run("first call success releases FirstSuccessRelease (observable via next run)", func(t *testing.T) {
+		retrier := New(
+			Attempts(10),
+			Delay(0),
+			MaxJitter(0),
+			WithFixTokenBucketThrottle(FixTokenBucketThrottleConfig{
+				MaxCapacity:         5,
+				ThrottleCost:        5,
+				FirstSuccessRelease: 1,
+			}),
+		)
+
+		// Exhaust capacity.
+		calls := 0
+		err := retrier.Do(func() error {
+			calls++
+			return errors.New("always fails")
+		})
+		assert.Error(t, err)
+		assert.Equal(t, 2, calls, "expected throttled stop after capacity exhausted")
+
+		// First attempt success refills a small amount.
+		err = retrier.Do(func() error { return nil })
+		assert.NoError(t, err)
+
+		// With only FirstSuccessRelease=1 refilled, we should fail-fast immediately on the next failure
+		// because Acquire(5) won't be possible.
+		calls = 0
+		err = retrier.Do(func() error {
+			calls++
+			return errors.New("always fails")
+		})
+		assert.Error(t, err)
+		assert.Equal(t, 1, calls, "expected immediate fail-fast with only partial refill")
 	})
 }
