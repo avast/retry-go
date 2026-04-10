@@ -176,6 +176,7 @@ func doWithData[T any](r *retrierCore, retryableFunc RetryableFuncWithData[T]) (
 		for {
 			t, err := retryableFunc()
 			if err == nil {
+				r.onSuccess(n)
 				return t, nil
 			}
 
@@ -213,6 +214,7 @@ shouldRetry:
 	for {
 		t, err := retryableFunc()
 		if err == nil {
+			r.onSuccess(n)
 			return t, nil
 		}
 

@@ -401,6 +401,118 @@ func TestCombineDelay(t *testing.T) {
 	}
 }
 
+func TestCombineRetryIfFunc(t *testing.T) {
+	f := func(v bool) RetryIfFunc {
+		return func(_ error) bool {
+			return v
+		}
+	}
+	for _, c := range []struct {
+		label    string
+		values   []bool
+		expected bool
+	}{
+		{
+			label:    "empty",
+			expected: true,
+		},
+		{
+			label: "single-true",
+			values: []bool{
+				true,
+			},
+			expected: true,
+		},
+		{
+			label: "single-false",
+			values: []bool{
+				false,
+			},
+			expected: false,
+		},
+		{
+			label: "all-true",
+			values: []bool{
+				true,
+				true,
+				true,
+			},
+			expected: true,
+		},
+		{
+			label: "mixed",
+			values: []bool{
+				true,
+				false,
+				true,
+			},
+			expected: false,
+		},
+	} {
+		t.Run(
+			c.label,
+			func(t *testing.T) {
+				funcs := make([]RetryIfFunc, len(c.values))
+				for i, v := range c.values {
+					funcs[i] = f(v)
+				}
+
+				actual := CombineRetryIfFunc(funcs...)(errors.New("boom"))
+				assert.Equal(t, c.expected, actual, "retryIf mismatch")
+			},
+		)
+	}
+
+	t.Run("short-circuits-on-false", func(t *testing.T) {
+		calls := 0
+		r1 := func(_ error) bool { calls++; return true }
+		r2 := func(_ error) bool { calls++; return false }
+		r3 := func(_ error) bool { calls++; return true }
+
+		ok := CombineRetryIfFunc(r1, r2, r3)(errors.New("boom"))
+		assert.False(t, ok)
+		assert.Equal(t, 2, calls, "expected evaluation to stop at first false")
+	})
+}
+
+func TestCombineOnSuccessFunc(t *testing.T) {
+	t.Run("empty", func(t *testing.T) {
+		assert.NotPanics(t, func() {
+			CombineOnSuccessFunc()(123)
+		})
+	})
+
+	t.Run("single", func(t *testing.T) {
+		var got uint
+		f := func(attempt uint) { got = attempt }
+
+		CombineOnSuccessFunc(f)(7)
+		assert.Equal(t, uint(7), got)
+	})
+
+	t.Run("multiple calls in order", func(t *testing.T) {
+		var order []string
+		var attempts []uint
+
+		f1 := func(attempt uint) {
+			order = append(order, "f1")
+			attempts = append(attempts, attempt)
+		}
+		f2 := func(attempt uint) {
+			order = append(order, "f2")
+			attempts = append(attempts, attempt)
+		}
+		f3 := func(attempt uint) {
+			order = append(order, "f3")
+			attempts = append(attempts, attempt)
+		}
+
+		CombineOnSuccessFunc(f1, f2, f3)(42)
+		assert.Equal(t, []string{"f1", "f2", "f3"}, order)
+		assert.Equal(t, []uint{42, 42, 42}, attempts)
+	})
+}
+
 func TestContext(t *testing.T) {
 	const defaultDelay = 100 * time.Millisecond
 	t.Run("cancel before", func(t *testing.T) {
