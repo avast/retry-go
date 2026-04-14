@@ -216,7 +216,12 @@ shouldRetry:
 			return t, nil
 		}
 
-		errorLog = append(errorLog, unpackUnrecoverable(err))
+		unpackedErr := unpackUnrecoverable(err)
+		if r.lastErrorOnly {
+			lastErr = unpackedErr
+		} else {
+			errorLog = append(errorLog, unpackedErr)
+		}
 
 		if !r.retryIf(err) {
 			break
@@ -251,7 +256,7 @@ shouldRetry:
 	}
 
 	if r.lastErrorOnly {
-		return emptyT, errorLog[len(errorLog)-1]
+		return emptyT, lastErr
 	}
 	return emptyT, errorLog
 }
