@@ -776,3 +776,20 @@ func TestFullJitterBackoffDelay(t *testing.T) {
 		assert.True(t, d <= time.Duration(ceil))
 	}
 }
+
+func TestFullJitterBackoffDelay_NoOverflowPanic(t *testing.T) {
+	// An uncapped exponential ceiling used to wrap negative and panic; it must
+	// clamp and keep returning a non-negative delay.
+	config := New(Delay(time.Second))
+	for n := uint(0); n < 70; n++ {
+		d := FullJitterBackoffDelay(n, errors.New("test"), config)
+		assert.True(t, d >= 0, "delay must be non-negative at n=%d, got %v", n, d)
+	}
+
+	// A MaxDelay at the top of the range must not overflow either.
+	configMax := New(Delay(time.Second), MaxDelay(time.Duration(math.MaxInt64)))
+	for n := uint(0); n < 70; n++ {
+		d := FullJitterBackoffDelay(n, errors.New("test"), configMax)
+		assert.True(t, d >= 0, "delay must be non-negative at n=%d, got %v", n, d)
+	}
+}

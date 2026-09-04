@@ -258,7 +258,17 @@ func FullJitterBackoffDelay(n uint, err error, config DelayContext) time.Duratio
 		return 0 // No delay if ceiling is zero or negative
 	}
 
-	jitter := rand.Int63n(int64(backoffCeiling)) // #nosec G404 -- Using math/rand is acceptable for non-security critical jitter.
+	// An uncapped exponential outgrows math.MaxInt64, and float64 cannot
+	// represent it exactly, so the int64 conversion wraps negative and makes
+	// rand.Int63n panic. Clamp first.
+	var ceiling int64
+	if backoffCeiling >= float64(math.MaxInt64) {
+		ceiling = math.MaxInt64
+	} else {
+		ceiling = int64(backoffCeiling)
+	}
+
+	jitter := rand.Int63n(ceiling) // #nosec G404 -- Using math/rand is acceptable for non-security critical jitter.
 	return time.Duration(jitter)
 }
 
