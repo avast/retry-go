@@ -187,6 +187,24 @@ func TestAttemptsForError(t *testing.T) {
 	assert.Equal(t, attemptsForTestError, count)
 }
 
+func TestAttemptsForError_ZeroAttempts(t *testing.T) {
+	count := uint(0)
+	testErr := os.ErrInvalid
+	attemptsForTestError := uint(3)
+	err := New(
+		AttemptsForError(attemptsForTestError, testErr),
+		Attempts(0),
+		Delay(time.Nanosecond),
+	).Do(
+		func() error {
+			count++
+			return testErr
+		},
+	)
+	assert.Error(t, err)
+	assert.Equal(t, attemptsForTestError, count)
+}
+
 func TestDefaultSleep(t *testing.T) {
 	start := time.Now()
 	err := New(

@@ -151,6 +151,8 @@ func UntilSucceeded() Option {
 // Retries for the given `err` are also counted against total retries.
 // The retry will stop if any of given retries is exhausted.
 //
+// This limit also applies when Attempts is 0 (retry until success / UntilSucceeded).
+//
 // added in 4.3.0
 func AttemptsForError(attempts uint, err error) Option {
 	return func(r *retrierCore) {
