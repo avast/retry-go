@@ -170,6 +170,11 @@ func doWithData[T any](r *retrierCore, retryableFunc RetryableFuncWithData[T]) (
 		return emptyT, err
 	}
 
+	attemptsForErrorCopy := make(map[error]uint, len(r.attemptsForError))
+	for err, attempts := range r.attemptsForError {
+		attemptsForErrorCopy[err] = attempts
+	}
+
 	// Setting r.attempts to 0 means we'll retry until we succeed
 	var lastErr error
 	if r.attempts == 0 {
@@ -190,6 +195,9 @@ func doWithData[T any](r *retrierCore, retryableFunc RetryableFuncWithData[T]) (
 			lastErr = err
 
 			r.onRetry(n, err)
+			if exhaustedAttemptsForError(attemptsForErrorCopy, err) {
+				return emptyT, err
+			}
 			n++
 			select {
 			case <-r.timer.After(r.computeDelay(n, err)):
@@ -203,11 +211,6 @@ func doWithData[T any](r *retrierCore, retryableFunc RetryableFuncWithData[T]) (
 	}
 
 	errorLog := Error{}
-
-	attemptsForErrorCopy := make(map[error]uint, len(r.attemptsForError))
-	for err, attempts := range r.attemptsForError {
-		attemptsForErrorCopy[err] = attempts
-	}
 
 shouldRetry:
 	for {
@@ -224,14 +227,8 @@ shouldRetry:
 
 		r.onRetry(n, err)
 
-		for errToCheck, attemptsForThisError := range attemptsForErrorCopy {
-			if errors.Is(err, errToCheck) {
-				attemptsForThisError--
-				attemptsForErrorCopy[errToCheck] = attemptsForThisError
-				if attemptsForThisError <= 0 {
-					break shouldRetry
-				}
-			}
+		if exhaustedAttemptsForError(attemptsForErrorCopy, err) {
+			break shouldRetry
 		}
 
 		// if this is last attempt - don't wait
@@ -254,6 +251,22 @@ shouldRetry:
 		return emptyT, errorLog[len(errorLog)-1]
 	}
 	return emptyT, errorLog
+}
+
+// exhaustedAttemptsForError decrements the remaining AttemptsForError budget for
+// err. It reports whether any matching error's budget is now exhausted.
+func exhaustedAttemptsForError(attemptsForError map[error]uint, err error) bool {
+	exhausted := false
+	for errToCheck, remaining := range attemptsForError {
+		if errors.Is(err, errToCheck) {
+			remaining--
+			attemptsForError[errToCheck] = remaining
+			if remaining == 0 {
+				exhausted = true
+			}
+		}
+	}
+	return exhausted
 }
 
 // Error type represents list of errors in retry
