@@ -3,6 +3,7 @@ package retry
 import (
 	"context"
 	"math"
+	"math/bits"
 	"math/rand"
 	"time"
 )
@@ -104,7 +105,7 @@ func newRetrieerCore(opts ...Option) *retrierCore {
 	if core.delay < 0 {
 		core.delay = 0
 	} else if core.delay > 0 {
-		core.maxBackOffN = maxBackOffN - uint(math.Floor(math.Log2(float64(core.delay))))
+		core.maxBackOffN = 63 - uint(bits.Len64(uint64(core.delay)))
 	}
 
 	return core
