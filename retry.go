@@ -216,7 +216,14 @@ shouldRetry:
 			return t, nil
 		}
 
-		errorLog = append(errorLog, unpackUnrecoverable(err))
+		// When lastErrorOnly is true, skip accumulating errors to avoid
+		// unbounded memory growth when Attempts is large (e.g. math.MaxUint)
+		// and the caller relies on context cancellation to stop retrying.
+		if r.lastErrorOnly {
+			lastErr = unpackUnrecoverable(err)
+		} else {
+			errorLog = append(errorLog, unpackUnrecoverable(err))
+		}
 
 		if !r.retryIf(err) {
 			break
@@ -251,7 +258,7 @@ shouldRetry:
 	}
 
 	if r.lastErrorOnly {
-		return emptyT, errorLog[len(errorLog)-1]
+		return emptyT, lastErr
 	}
 	return emptyT, errorLog
 }
