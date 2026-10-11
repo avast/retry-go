@@ -173,6 +173,11 @@ func doWithData[T any](r *retrierCore, retryableFunc RetryableFuncWithData[T]) (
 	// Setting r.attempts to 0 means we'll retry until we succeed
 	var lastErr error
 	if r.attempts == 0 {
+		attemptsForErrorCopy := make(map[error]uint, len(r.attemptsForError))
+		for err, attempts := range r.attemptsForError {
+			attemptsForErrorCopy[err] = attempts
+		}
+
 		for {
 			t, err := retryableFunc()
 			if err == nil {
@@ -190,6 +195,17 @@ func doWithData[T any](r *retrierCore, retryableFunc RetryableFuncWithData[T]) (
 			lastErr = err
 
 			r.onRetry(n, err)
+
+			for errToCheck, attemptsForThisError := range attemptsForErrorCopy {
+				if errors.Is(err, errToCheck) {
+					if attemptsForThisError <= 1 {
+						return emptyT, err
+					}
+					attemptsForThisError--
+					attemptsForErrorCopy[errToCheck] = attemptsForThisError
+				}
+			}
+
 			n++
 			select {
 			case <-r.timer.After(r.computeDelay(n, err)):
@@ -226,16 +242,16 @@ shouldRetry:
 
 		for errToCheck, attemptsForThisError := range attemptsForErrorCopy {
 			if errors.Is(err, errToCheck) {
-				attemptsForThisError--
-				attemptsForErrorCopy[errToCheck] = attemptsForThisError
-				if attemptsForThisError <= 0 {
+				if attemptsForThisError <= 1 {
 					break shouldRetry
 				}
+				attemptsForThisError--
+				attemptsForErrorCopy[errToCheck] = attemptsForThisError
 			}
 		}
 
 		// if this is last attempt - don't wait
-		if n == r.attempts-1 {
+		if r.attempts > 0 && n >= r.attempts-1 {
 			break shouldRetry
 		}
 		n++
