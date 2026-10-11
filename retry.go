@@ -220,7 +220,11 @@ shouldRetry:
 			return t, nil
 		}
 
-		errorLog = append(errorLog, unpackUnrecoverable(err))
+		if r.lastErrorOnly {
+			lastErr = unpackUnrecoverable(err)
+		} else {
+			errorLog = appendError(errorLog, unpackUnrecoverable(err))
+		}
 
 		if !r.retryIf(err) {
 			break
@@ -244,12 +248,12 @@ shouldRetry:
 				return emptyT, context.Cause(r.context)
 			}
 
-			return emptyT, append(errorLog, context.Cause(r.context))
+			return emptyT, appendError(errorLog, context.Cause(r.context))
 		}
 	}
 
 	if r.lastErrorOnly {
-		return emptyT, errorLog[len(errorLog)-1]
+		return emptyT, lastErr
 	}
 	return emptyT, errorLog
 }
@@ -275,6 +279,17 @@ func exhaustedAttemptsForError(attemptsForError map[error]uint, err error) bool 
 		}
 	}
 	return false
+}
+
+const maxErrorLogSize = 100
+
+func appendError(errorLog Error, err error) Error {
+	if len(errorLog) < maxErrorLogSize {
+		return append(errorLog, err)
+	}
+	copy(errorLog, errorLog[1:])
+	errorLog[len(errorLog)-1] = err
+	return errorLog
 }
 
 // Error type represents list of errors in retry
