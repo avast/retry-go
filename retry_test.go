@@ -187,6 +187,142 @@ func TestAttemptsForError(t *testing.T) {
 	assert.Equal(t, attemptsForTestError, count)
 }
 
+func TestAttemptsForError_ZeroAttempts_Failure(t *testing.T) {
+	count := uint(0)
+	testErr := os.ErrInvalid
+	attemptsForTestError := uint(2)
+	err := New(
+		Attempts(0),
+		Delay(time.Nanosecond),
+		AttemptsForError(attemptsForTestError, testErr),
+	).Do(
+		func() error {
+			count++
+			return testErr
+		},
+	)
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, testErr))
+	assert.Equal(t, attemptsForTestError, count)
+}
+
+func TestAttemptsForError_ZeroAttempts_Success(t *testing.T) {
+	count := uint(0)
+	testErr := os.ErrInvalid
+	err := New(
+		Attempts(0),
+		Delay(time.Nanosecond),
+		AttemptsForError(3, testErr),
+	).Do(
+		func() error {
+			count++
+			if count < 3 {
+				return testErr
+			}
+			return nil
+		},
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, uint(3), count)
+}
+
+func TestAttemptsForError_ZeroAttempts_SingleAttemptIssue137(t *testing.T) {
+	count := uint(0)
+	err := New(
+		Attempts(0),
+		Delay(time.Nanosecond),
+		AttemptsForError(1, context.Canceled),
+	).Do(
+		func() error {
+			count++
+			return context.Canceled
+		},
+	)
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, context.Canceled))
+	assert.Equal(t, uint(1), count)
+}
+
+func TestAttemptsForError_ZeroAttempts_ZeroCountForError(t *testing.T) {
+	count := uint(0)
+	testErr := os.ErrInvalid
+	err := New(
+		Attempts(0),
+		Delay(time.Nanosecond),
+		AttemptsForError(0, testErr),
+	).Do(
+		func() error {
+			count++
+			return testErr
+		},
+	)
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, testErr))
+	assert.Equal(t, uint(1), count)
+}
+
+func TestAttemptsForError_NonZeroAttempts_ZeroCountForError(t *testing.T) {
+	count := uint(0)
+	testErr := os.ErrInvalid
+	err := New(
+		Attempts(5),
+		Delay(time.Nanosecond),
+		AttemptsForError(0, testErr),
+	).Do(
+		func() error {
+			count++
+			return testErr
+		},
+	)
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, testErr))
+	assert.Equal(t, uint(1), count)
+}
+
+func TestAttemptsForError_ZeroAttempts_MultipleErrors(t *testing.T) {
+	count := uint(0)
+	errA := errors.New("error A")
+	errB := errors.New("error B")
+	err := New(
+		UntilSucceeded(),
+		Delay(time.Nanosecond),
+		AttemptsForError(3, errA),
+		AttemptsForError(1, errB),
+	).Do(
+		func() error {
+			count++
+			if count == 1 {
+				return errA
+			}
+			return errB
+		},
+	)
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, errB))
+	assert.Equal(t, uint(2), count)
+}
+
+func TestAttemptsForError_ZeroAttempts_WithData(t *testing.T) {
+	count := uint(0)
+	testErr := os.ErrInvalid
+	val, err := NewWithData[string](
+		Attempts(0),
+		Delay(time.Nanosecond),
+		AttemptsForError(3, testErr),
+	).Do(
+		func() (string, error) {
+			count++
+			if count < 2 {
+				return "", testErr
+			}
+			return "success", nil
+		},
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, "success", val)
+	assert.Equal(t, uint(2), count)
+}
+
 func TestDefaultSleep(t *testing.T) {
 	start := time.Now()
 	err := New(
