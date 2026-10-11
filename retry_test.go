@@ -776,3 +776,106 @@ func TestFullJitterBackoffDelay(t *testing.T) {
 		assert.True(t, d <= time.Duration(ceil))
 	}
 }
+
+func TestHighAttemptsBoundedErrorLog(t *testing.T) {
+	const totalAttempts = 1000
+	var count int
+	err := New(
+		Attempts(totalAttempts),
+		Delay(0),
+		MaxJitter(0),
+	).Do(func() error {
+		count++
+		return fooErr{str: fmt.Sprintf("error %d", count)}
+	})
+
+	assert.Error(t, err)
+	assert.Equal(t, totalAttempts, count)
+
+	retryErr, ok := err.(Error)
+	assert.True(t, ok)
+	assert.Len(t, retryErr, maxErrorLogSize)
+	assert.Equal(t, fooErr{str: fmt.Sprintf("error %d", totalAttempts-maxErrorLogSize+1)}, retryErr[0])
+	assert.Equal(t, fooErr{str: fmt.Sprintf("error %d", totalAttempts)}, retryErr.LastError())
+}
+
+func TestMaxUintAttemptsContextCancelBoundedErrorLog(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	const cancelAtAttempt = 500
+	var count int
+	err := New(
+		Attempts(math.MaxUint),
+		Context(ctx),
+		DelayType(func(n uint, err error, config DelayContext) time.Duration {
+			if ctx.Err() != nil {
+				return time.Hour
+			}
+			return 0
+		}),
+		OnRetry(func(n uint, err error) {
+			if count >= cancelAtAttempt {
+				cancel()
+			}
+		}),
+	).Do(func() error {
+		count++
+		return fooErr{str: fmt.Sprintf("error %d", count)}
+	})
+
+	assert.Error(t, err)
+	assert.Equal(t, cancelAtAttempt, count)
+
+	retryErr, ok := err.(Error)
+	assert.True(t, ok)
+	assert.Len(t, retryErr, maxErrorLogSize)
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.ErrorIs(t, err, fooErr{str: fmt.Sprintf("error %d", cancelAtAttempt)})
+	assert.Equal(t, context.Canceled, retryErr.LastError())
+}
+
+func TestHighAttemptsLastErrorOnlyBoundedMemory(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	const cancelAtAttempt = 1000
+	var count int
+	err := New(
+		Attempts(math.MaxUint),
+		Context(ctx),
+		LastErrorOnly(true),
+		DelayType(func(n uint, err error, config DelayContext) time.Duration {
+			if ctx.Err() != nil {
+				return time.Hour
+			}
+			return 0
+		}),
+		OnRetry(func(n uint, err error) {
+			if count >= cancelAtAttempt {
+				cancel()
+			}
+		}),
+	).Do(func() error {
+		count++
+		return fooErr{str: fmt.Sprintf("error %d", count)}
+	})
+
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, cancelAtAttempt, count)
+
+	count = 0
+	err = New(
+		Attempts(500),
+		LastErrorOnly(true),
+		Delay(0),
+		MaxJitter(0),
+	).Do(func() error {
+		count++
+		return fooErr{str: fmt.Sprintf("error %d", count)}
+	})
+
+	assert.Equal(t, fooErr{str: "error 500"}, err)
+	assert.Equal(t, 500, count)
+}
+
