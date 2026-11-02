@@ -38,7 +38,7 @@ HTTP GET with retry with data:
 
 	url := "http://example.com"
 
-	body, err := retry.DoWithData(retry.New(),
+	body, err := retry.NewWithData[[]byte]().Do(
 		func() ([]byte, error) {
 			resp, err := http.Get(url)
 			if err != nil {
@@ -103,8 +103,10 @@ Reusable retrier for high-frequency retry operations:
   - Renamed `Config` type to `Retrier`
   - Renamed `NewConfig()` to `New()`
   - Changed from package-level functions to methods: `retry.Do(func, config)` → `retry.New(opts...).Do(func)`
+  - Replaced package-level `DoWithData` with typed retrier: `retry.DoWithData(func, opts...)` → `retry.NewWithData[T](opts...).Do(func)`
   - `DelayTypeFunc` signature changed: `func(n uint, err error, config *Config)` → `func(n uint, err error, r *Retrier)`
-  - Migration: `retry.Do(func, opts...)` → `retry.New(opts...).Do(func)` (simple find & replace)
+  - Migration for `Do`: `retry.Do(func, opts...)` → `retry.New(opts...).Do(func)` (simple find & replace)
+  - Migration for `DoWithData`: `retry.DoWithData(func, opts...)` → `retry.NewWithData[T](opts...).Do(func)` where `T` is your return type
   - This change improves performance, simplifies the API, and provides a cleaner interface
   - `Unwrap()` now returns `[]error` instead of `error` to support Go 1.20 multiple error wrapping.
   - `errors.Unwrap(err)` will now return `nil` (same as `errors.Join`). Use `errors.Is` or `errors.As` to inspect wrapped errors.
@@ -170,6 +172,8 @@ func doWithData[T any](r *retrierCore, retryableFunc RetryableFuncWithData[T]) (
 		return emptyT, err
 	}
 
+	attemptsForErrorCopy := copyAttemptsForError(r.attemptsForError)
+
 	// Setting r.attempts to 0 means we'll retry until we succeed
 	var lastErr error
 	if r.attempts == 0 {
@@ -190,6 +194,11 @@ func doWithData[T any](r *retrierCore, retryableFunc RetryableFuncWithData[T]) (
 			lastErr = err
 
 			r.onRetry(n, err)
+
+			if exhaustedAttemptsForError(attemptsForErrorCopy, err) {
+				return emptyT, err
+			}
+
 			n++
 			select {
 			case <-r.timer.After(r.computeDelay(n, err)):
@@ -203,11 +212,6 @@ func doWithData[T any](r *retrierCore, retryableFunc RetryableFuncWithData[T]) (
 	}
 
 	errorLog := Error{}
-
-	attemptsForErrorCopy := make(map[error]uint, len(r.attemptsForError))
-	for err, attempts := range r.attemptsForError {
-		attemptsForErrorCopy[err] = attempts
-	}
 
 shouldRetry:
 	for {
@@ -229,14 +233,8 @@ shouldRetry:
 
 		r.onRetry(n, err)
 
-		for errToCheck, attemptsForThisError := range attemptsForErrorCopy {
-			if errors.Is(err, errToCheck) {
-				attemptsForThisError--
-				attemptsForErrorCopy[errToCheck] = attemptsForThisError
-				if attemptsForThisError <= 0 {
-					break shouldRetry
-				}
-			}
+		if exhaustedAttemptsForError(attemptsForErrorCopy, err) {
+			break shouldRetry
 		}
 
 		// if this is last attempt - don't wait
@@ -259,6 +257,29 @@ shouldRetry:
 		return emptyT, lastErr
 	}
 	return emptyT, errorLog
+}
+
+func copyAttemptsForError(attemptsForError map[error]uint) map[error]uint {
+	if len(attemptsForError) == 0 {
+		return nil
+	}
+	c := make(map[error]uint, len(attemptsForError))
+	for err, attempts := range attemptsForError {
+		c[err] = attempts
+	}
+	return c
+}
+
+func exhaustedAttemptsForError(attemptsForError map[error]uint, err error) bool {
+	for errToCheck, remaining := range attemptsForError {
+		if errors.Is(err, errToCheck) {
+			if remaining <= 1 {
+				return true
+			}
+			attemptsForError[errToCheck] = remaining - 1
+		}
+	}
+	return false
 }
 
 // Error type represents list of errors in retry
