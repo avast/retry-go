@@ -980,3 +980,52 @@ func TestFullJitterBackoffDelay(t *testing.T) {
 		assert.True(t, d <= time.Duration(ceil))
 	}
 }
+
+func TestLastErrorOnlyReturnsFinalErrorAfterManyAttempts(t *testing.T) {
+	const totalAttempts = 500
+	var count int
+	err := New(
+		Attempts(totalAttempts),
+		Delay(0),
+		MaxJitter(0),
+		LastErrorOnly(true),
+	).Do(func() error {
+		count++
+		return fooErr{str: fmt.Sprintf("error %d", count)}
+	})
+
+	assert.Error(t, err)
+	assert.Equal(t, totalAttempts, count)
+	assert.Equal(t, fooErr{str: fmt.Sprintf("error %d", totalAttempts)}, err)
+}
+
+func TestLastErrorOnlyUnboundedAttemptsUntilContextCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	const cancelAtAttempt = 1000
+	var count int
+	err := New(
+		Attempts(math.MaxUint),
+		Context(ctx),
+		LastErrorOnly(true),
+		DelayType(func(n uint, err error, config DelayContext) time.Duration {
+			if ctx.Err() != nil {
+				// a long delay keeps the timer branch unready, so ctx.Done() wins the select
+				return time.Hour
+			}
+			return 0
+		}),
+		OnRetry(func(n uint, err error) {
+			if count >= cancelAtAttempt {
+				cancel()
+			}
+		}),
+	).Do(func() error {
+		count++
+		return fooErr{str: fmt.Sprintf("error %d", count)}
+	})
+
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, cancelAtAttempt, count)
+}
