@@ -111,7 +111,8 @@ func generate(pkgDir string) (string, error) {
 	if err := tmpl.Execute(&out, pkg); err != nil {
 		return "", err
 	}
-	return blankLines.ReplaceAllString(out.String(), "\n\n"), nil
+	rendered := strings.ReplaceAll(out.String(), "\r\n", "\n")
+	return blankLines.ReplaceAllString(rendered, "\n\n"), nil
 }
 
 // packageSourceFiles parses all non-test Go files of the package in dir,
@@ -158,7 +159,7 @@ func declaration(fset *token.FileSet, decl ast.Decl) string {
 // tab-indented code blocks become fenced Go code, and escaped backticks are
 // restored so that the doc comment backquote convention renders as code.
 func markdownFor(pkg *doc.Package, text string) string {
-	out := string(pkg.Markdown(text))
+	out := strings.ReplaceAll(string(pkg.Markdown(text)), "\r\n", "\n")
 	out = headingAnchor.ReplaceAllString(out, "## $1")
 	out = fenceIndentedCodeBlocks(out)
 	out = strings.ReplaceAll(out, "\\`", "`")
