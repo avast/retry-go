@@ -81,7 +81,7 @@ type RetrierWithData[T any] struct {
 // Option represents an option for retry.
 type Option func(*retrierCore)
 
-func newRetrieerCore(opts ...Option) *retrierCore {
+func newRetrierCore(opts ...Option) *retrierCore {
 	core := &retrierCore{
 		attempts:         uint(10),
 		attemptsForError: make(map[error]uint),
@@ -113,13 +113,13 @@ func newRetrieerCore(opts ...Option) *retrierCore {
 // New creates a new Retrier with the given options.
 // The returned Retrier can be safely reused across multiple retry operations.
 func New(opts ...Option) *Retrier {
-	return &Retrier{retrierCore: newRetrieerCore(opts...)}
+	return &Retrier{retrierCore: newRetrierCore(opts...)}
 }
 
 // NewWithData creates a new RetrierWithData[T] with the given options.
 // The returned retrier can be safely reused across multiple retry operations.
 func NewWithData[T any](opts ...Option) *RetrierWithData[T] {
-	return &RetrierWithData[T]{retrierCore: newRetrieerCore(opts...)}
+	return &RetrierWithData[T]{retrierCore: newRetrierCore(opts...)}
 }
 
 func emptyOption(r *retrierCore) {}
