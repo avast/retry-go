@@ -334,6 +334,48 @@ func TestBackOffDelay(t *testing.T) {
 			n:             1,
 			expectedDelay: time.Second,
 		},
+		{
+			label:         "maximum-duration-first-retry",
+			delay:         math.MaxInt64,
+			expectedMaxN:  0,
+			n:             1,
+			expectedDelay: math.MaxInt64,
+		},
+		{
+			label:         "maximum-duration-second-retry",
+			delay:         math.MaxInt64,
+			expectedMaxN:  0,
+			n:             2,
+			expectedDelay: math.MaxInt64,
+		},
+		{
+			label:         "maximum-duration-late-retry",
+			delay:         math.MaxInt64,
+			expectedMaxN:  0,
+			n:             65,
+			expectedDelay: math.MaxInt64,
+		},
+		{
+			label:         "below-large-power-of-two",
+			delay:         1<<62 - 1,
+			expectedMaxN:  1,
+			n:             2,
+			expectedDelay: 1<<63 - 2,
+		},
+		{
+			label:         "below-float-precision-boundary",
+			delay:         1<<53 - 1,
+			expectedMaxN:  10,
+			n:             11,
+			expectedDelay: (1<<53 - 1) << 10,
+		},
+		{
+			label:         "large-power-of-two",
+			delay:         1 << 62,
+			expectedMaxN:  0,
+			n:             2,
+			expectedDelay: 1 << 62,
+		},
 	} {
 		t.Run(
 			c.label,
@@ -345,6 +387,32 @@ func TestBackOffDelay(t *testing.T) {
 			},
 		)
 	}
+}
+
+type backOffRecordingTimer struct {
+	delays []time.Duration
+}
+
+func (t *backOffRecordingTimer) After(d time.Duration) <-chan time.Time {
+	t.delays = append(t.delays, d)
+	ready := make(chan time.Time)
+	close(ready)
+	return ready
+}
+
+func TestBackOffDelayRespectsMaxDelay(t *testing.T) {
+	timer := &backOffRecordingTimer{}
+	err := New(
+		Attempts(3),
+		Delay(math.MaxInt64),
+		MaxDelay(time.Second),
+		DelayType(BackOffDelay),
+		WithTimer(timer),
+	).Do(func() error { return assert.AnError })
+
+	assert.ErrorIs(t, err, assert.AnError)
+	assert.Len(t, err, 3)
+	assert.Equal(t, []time.Duration{time.Second, time.Second}, timer.delays)
 }
 
 func TestCombineDelay(t *testing.T) {
