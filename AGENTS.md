@@ -21,3 +21,5 @@
 **`README.md` is generated — never edit it directly.** It is rendered by `godocdown` from the package doc comment in `retry.go` through the `.godocdown.tmpl` template. Content changes (examples, migration notes) go in the `retry.go` doc comment; layout changes go in the template. Then run `make generate` and commit the result.
 
 **The module floor is Go 1.20 (`go.mod`).** All code must compile on 1.20 — stdlib additions newer than that are off-limits (e.g. `maps.Clone`, the `slices` package, `min`/`max` builtins are 1.21+). A modern local toolchain will not catch this; CI's 1.20 jobs will.
+
+**The floor is a trade-off, not a fate.** A low floor is library courtesy, but if a change genuinely needs newer stdlib or language features, propose bumping the floor instead of writing a compatibility workaround. Never do either silently — both are maintainer decisions, and a bump is release material: update `go.mod` and the CI matrix together and call it out in release notes.
