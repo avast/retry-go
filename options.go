@@ -100,15 +100,18 @@ func newRetrieerCore(opts ...Option) *retrierCore {
 		opt(core)
 	}
 
-	const maxBackOffN uint = 62
-	core.maxBackOffN = maxBackOffN
+	core.maxBackOffN = maxShiftsBeforeInt64Overflow(time.Nanosecond)
 	if core.delay < 0 {
 		core.delay = 0
 	} else if core.delay > 0 {
-		core.maxBackOffN = 63 - uint(bits.Len64(uint64(core.delay)))
+		core.maxBackOffN = maxShiftsBeforeInt64Overflow(core.delay)
 	}
 
 	return core
+}
+
+func maxShiftsBeforeInt64Overflow(d time.Duration) uint {
+	return uint(bits.Len64(math.MaxInt64)) - uint(bits.Len64(uint64(d)))
 }
 
 // New creates a new Retrier with the given options.
