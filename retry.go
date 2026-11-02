@@ -1,7 +1,7 @@
 /*
 Simple library for retry mechanism
 
-Slightly inspired by [Try::Tiny::Retry](https://metacpan.org/pod/Try::Tiny::Retry)
+Slightly inspired by [Try::Tiny::Retry]
 
 # SYNOPSIS
 
@@ -80,25 +80,26 @@ Reusable retrier for high-frequency retry operations:
 		}
 	}
 
-[More examples](https://github.com/avast/retry-go/tree/main/examples)
+[More examples]
 
 # SEE ALSO
 
-* [codeGROOVE-dev/retry](https://github.com/codeGROOVE-dev/retry) - Modern fork of avast/retry-go/v4 focused on correctness, reliability and efficiency. 100% API-compatible drop-in replacement. Looks really good.
+  - [codeGROOVE-dev/retry] - Modern fork of avast/retry-go/v4 focused on correctness, reliability and efficiency. 100% API-compatible drop-in replacement. Looks really good.
 
-* [giantswarm/retry-go](https://github.com/giantswarm/retry-go) - slightly complicated interface.
+  - [giantswarm/retry-go] - slightly complicated interface.
 
-* [sethgrid/pester](https://github.com/sethgrid/pester) - only http retry for http calls with retries and backoff
+  - [sethgrid/pester] - only http retry for http calls with retries and backoff
 
-* [cenkalti/backoff](https://github.com/cenkalti/backoff) - Go port of the exponential backoff algorithm from Google's HTTP Client Library for Java. Really complicated interface.
+  - [cenkalti/backoff] - Go port of the exponential backoff algorithm from Google's HTTP Client Library for Java. Really complicated interface.
 
-* [rafaeljesus/retry-go](https://github.com/rafaeljesus/retry-go) - looks good, slightly similar as this package, don't have 'simple' `Retry` method
+  - [rafaeljesus/retry-go] - looks good, slightly similar as this package, don't have 'simple' `Retry` method
 
-* [matryer/try](https://github.com/matryer/try) - very popular package, nonintuitive interface (for me)
+  - [matryer/try] - very popular package, nonintuitive interface (for me)
 
 # BREAKING CHANGES
 
-* 5.0.0
+5.0.0
+
   - Complete API redesign: method-based retry operations
   - Renamed `Config` type to `Retrier`
   - Renamed `NewConfig()` to `New()`
@@ -111,20 +112,36 @@ Reusable retrier for high-frequency retry operations:
   - `Unwrap()` now returns `[]error` instead of `error` to support Go 1.20 multiple error wrapping.
   - `errors.Unwrap(err)` will now return `nil` (same as `errors.Join`). Use `errors.Is` or `errors.As` to inspect wrapped errors.
 
-* 4.0.0
-  - infinity retry is possible by set `Attempts(0)` by PR [#49](https://github.com/avast/retry-go/pull/49)
+4.0.0
 
-* 3.0.0
-  - `DelayTypeFunc` accepts a new parameter `err` - this breaking change affects only your custom Delay Functions. This change allow [make delay functions based on error](examples/delay_based_on_error_test.go).
+  - infinity retry is possible by set `Attempts(0)` by PR [#49]
 
-* 1.0.2 -> 2.0.0
+3.0.0
+
+  - `DelayTypeFunc` accepts a new parameter `err` - this breaking change affects only your custom Delay Functions. This change allow [make delay functions based on error].
+
+1.0.2 -> 2.0.0
+
   - argument of `retry.Delay` is final delay (no multiplication by `retry.Units` anymore)
   - function `retry.Units` are removed
-  - [more about this breaking change](https://github.com/avast/retry-go/issues/7)
+  - [more about this breaking change]
 
-* 0.3.0 -> 1.0.0
+0.3.0 -> 1.0.0
+
   - `retry.Retry` function are changed to `retry.Do` function
   - `retry.RetryCustom` (OnRetry) and `retry.RetryCustomWithOpts` functions are now implement via functions produces Options (aka `retry.OnRetry`)
+
+[Try::Tiny::Retry]: https://metacpan.org/pod/Try::Tiny::Retry
+[More examples]: https://github.com/avast/retry-go/tree/main/examples
+[codeGROOVE-dev/retry]: https://github.com/codeGROOVE-dev/retry
+[giantswarm/retry-go]: https://github.com/giantswarm/retry-go
+[sethgrid/pester]: https://github.com/sethgrid/pester
+[cenkalti/backoff]: https://github.com/cenkalti/backoff
+[rafaeljesus/retry-go]: https://github.com/rafaeljesus/retry-go
+[matryer/try]: https://github.com/matryer/try
+[#49]: https://github.com/avast/retry-go/pull/49
+[make delay functions based on error]: https://github.com/avast/retry-go/blob/main/examples/delay_based_on_error_test.go
+[more about this breaking change]: https://github.com/avast/retry-go/issues/7
 */
 package retry
 
