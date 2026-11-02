@@ -220,6 +220,15 @@ func TestWithThrottleOption(t *testing.T) {
 		assert.Equal(t, 2, calls)
 	})
 
+	t.Run("infinite attempts with AttemptsForError limit do not consume capacity", func(t *testing.T) {
+		m := NewFixedTokenBucketThrottle(FixedTokenBucketThrottleConfig{MaxCapacity: 10, ThrottleCost: 5})
+		calls := 0
+		err := newRetrier(m, Attempts(0), AttemptsForError(2, errBoom)).Do(alwaysFail(&calls))
+		assert.ErrorIs(t, err, errBoom)
+		assert.Equal(t, 2, calls)
+		assert.Equal(t, int64(5), m.pool.available, "only the one real retry should be charged")
+	})
+
 	t.Run("infinite attempts release on success", func(t *testing.T) {
 		m := newManager()
 		calls := 0

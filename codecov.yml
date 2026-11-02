@@ -1,0 +1,5 @@
+# The README generator is a development tool, not library code - it is
+# exercised by its golden-file test in CI, but excluded from coverage
+# metrics so they reflect the library alone.
+ignore:
+  - "tools/genreadme"

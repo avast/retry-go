@@ -187,6 +187,142 @@ func TestAttemptsForError(t *testing.T) {
 	assert.Equal(t, attemptsForTestError, count)
 }
 
+func TestAttemptsForError_ZeroAttempts_Failure(t *testing.T) {
+	count := uint(0)
+	testErr := os.ErrInvalid
+	attemptsForTestError := uint(2)
+	err := New(
+		Attempts(0),
+		Delay(time.Nanosecond),
+		AttemptsForError(attemptsForTestError, testErr),
+	).Do(
+		func() error {
+			count++
+			return testErr
+		},
+	)
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, testErr))
+	assert.Equal(t, attemptsForTestError, count)
+}
+
+func TestAttemptsForError_ZeroAttempts_Success(t *testing.T) {
+	count := uint(0)
+	testErr := os.ErrInvalid
+	err := New(
+		Attempts(0),
+		Delay(time.Nanosecond),
+		AttemptsForError(3, testErr),
+	).Do(
+		func() error {
+			count++
+			if count < 3 {
+				return testErr
+			}
+			return nil
+		},
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, uint(3), count)
+}
+
+func TestAttemptsForError_ZeroAttempts_SingleAttemptIssue137(t *testing.T) {
+	count := uint(0)
+	err := New(
+		Attempts(0),
+		Delay(time.Nanosecond),
+		AttemptsForError(1, context.Canceled),
+	).Do(
+		func() error {
+			count++
+			return context.Canceled
+		},
+	)
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, context.Canceled))
+	assert.Equal(t, uint(1), count)
+}
+
+func TestAttemptsForError_ZeroAttempts_ZeroCountForError(t *testing.T) {
+	count := uint(0)
+	testErr := os.ErrInvalid
+	err := New(
+		Attempts(0),
+		Delay(time.Nanosecond),
+		AttemptsForError(0, testErr),
+	).Do(
+		func() error {
+			count++
+			return testErr
+		},
+	)
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, testErr))
+	assert.Equal(t, uint(1), count)
+}
+
+func TestAttemptsForError_NonZeroAttempts_ZeroCountForError(t *testing.T) {
+	count := uint(0)
+	testErr := os.ErrInvalid
+	err := New(
+		Attempts(5),
+		Delay(time.Nanosecond),
+		AttemptsForError(0, testErr),
+	).Do(
+		func() error {
+			count++
+			return testErr
+		},
+	)
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, testErr))
+	assert.Equal(t, uint(1), count)
+}
+
+func TestAttemptsForError_ZeroAttempts_MultipleErrors(t *testing.T) {
+	count := uint(0)
+	errA := errors.New("error A")
+	errB := errors.New("error B")
+	err := New(
+		UntilSucceeded(),
+		Delay(time.Nanosecond),
+		AttemptsForError(3, errA),
+		AttemptsForError(1, errB),
+	).Do(
+		func() error {
+			count++
+			if count == 1 {
+				return errA
+			}
+			return errB
+		},
+	)
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, errB))
+	assert.Equal(t, uint(2), count)
+}
+
+func TestAttemptsForError_ZeroAttempts_WithData(t *testing.T) {
+	count := uint(0)
+	testErr := os.ErrInvalid
+	val, err := NewWithData[string](
+		Attempts(0),
+		Delay(time.Nanosecond),
+		AttemptsForError(3, testErr),
+	).Do(
+		func() (string, error) {
+			count++
+			if count < 2 {
+				return "", testErr
+			}
+			return "success", nil
+		},
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, "success", val)
+	assert.Equal(t, uint(2), count)
+}
+
 func TestDefaultSleep(t *testing.T) {
 	start := time.Now()
 	err := New(
@@ -334,6 +470,48 @@ func TestBackOffDelay(t *testing.T) {
 			n:             1,
 			expectedDelay: time.Second,
 		},
+		{
+			label:         "maximum-duration-first-retry",
+			delay:         math.MaxInt64,
+			expectedMaxN:  0,
+			n:             1,
+			expectedDelay: math.MaxInt64,
+		},
+		{
+			label:         "maximum-duration-second-retry",
+			delay:         math.MaxInt64,
+			expectedMaxN:  0,
+			n:             2,
+			expectedDelay: math.MaxInt64,
+		},
+		{
+			label:         "maximum-duration-late-retry",
+			delay:         math.MaxInt64,
+			expectedMaxN:  0,
+			n:             65,
+			expectedDelay: math.MaxInt64,
+		},
+		{
+			label:         "below-large-power-of-two",
+			delay:         1<<62 - 1,
+			expectedMaxN:  1,
+			n:             2,
+			expectedDelay: 1<<63 - 2,
+		},
+		{
+			label:         "below-float-precision-boundary",
+			delay:         1<<53 - 1,
+			expectedMaxN:  10,
+			n:             11,
+			expectedDelay: (1<<53 - 1) << 10,
+		},
+		{
+			label:         "large-power-of-two",
+			delay:         1 << 62,
+			expectedMaxN:  0,
+			n:             2,
+			expectedDelay: 1 << 62,
+		},
 	} {
 		t.Run(
 			c.label,
@@ -345,6 +523,32 @@ func TestBackOffDelay(t *testing.T) {
 			},
 		)
 	}
+}
+
+type backOffRecordingTimer struct {
+	delays []time.Duration
+}
+
+func (t *backOffRecordingTimer) After(d time.Duration) <-chan time.Time {
+	t.delays = append(t.delays, d)
+	ready := make(chan time.Time)
+	close(ready)
+	return ready
+}
+
+func TestBackOffDelayRespectsMaxDelay(t *testing.T) {
+	timer := &backOffRecordingTimer{}
+	err := New(
+		Attempts(3),
+		Delay(math.MaxInt64),
+		MaxDelay(time.Second),
+		DelayType(BackOffDelay),
+		WithTimer(timer),
+	).Do(func() error { return assert.AnError })
+
+	assert.ErrorIs(t, err, assert.AnError)
+	assert.Len(t, err, 3)
+	assert.Equal(t, []time.Duration{time.Second, time.Second}, timer.delays)
 }
 
 func TestCombineDelay(t *testing.T) {
@@ -775,4 +979,53 @@ func TestFullJitterBackoffDelay(t *testing.T) {
 		}
 		assert.True(t, d <= time.Duration(ceil))
 	}
+}
+
+func TestLastErrorOnlyReturnsFinalErrorAfterManyAttempts(t *testing.T) {
+	const totalAttempts = 500
+	var count int
+	err := New(
+		Attempts(totalAttempts),
+		Delay(0),
+		MaxJitter(0),
+		LastErrorOnly(true),
+	).Do(func() error {
+		count++
+		return fooErr{str: fmt.Sprintf("error %d", count)}
+	})
+
+	assert.Error(t, err)
+	assert.Equal(t, totalAttempts, count)
+	assert.Equal(t, fooErr{str: fmt.Sprintf("error %d", totalAttempts)}, err)
+}
+
+func TestLastErrorOnlyUnboundedAttemptsUntilContextCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	const cancelAtAttempt = 1000
+	var count int
+	err := New(
+		Attempts(math.MaxUint),
+		Context(ctx),
+		LastErrorOnly(true),
+		DelayType(func(n uint, err error, config DelayContext) time.Duration {
+			if ctx.Err() != nil {
+				// a long delay keeps the timer branch unready, so ctx.Done() wins the select
+				return time.Hour
+			}
+			return 0
+		}),
+		OnRetry(func(n uint, err error) {
+			if count >= cancelAtAttempt {
+				cancel()
+			}
+		}),
+	).Do(func() error {
+		count++
+		return fooErr{str: fmt.Sprintf("error %d", count)}
+	})
+
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, cancelAtAttempt, count)
 }

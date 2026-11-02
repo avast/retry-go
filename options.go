@@ -3,6 +3,7 @@ package retry
 import (
 	"context"
 	"math"
+	"math/bits"
 	"math/rand"
 	"time"
 )
@@ -82,7 +83,7 @@ type RetrierWithData[T any] struct {
 // Option represents an option for retry.
 type Option func(*retrierCore)
 
-func newRetrieerCore(opts ...Option) *retrierCore {
+func newRetrierCore(opts ...Option) *retrierCore {
 	core := &retrierCore{
 		attempts:         uint(10),
 		attemptsForError: make(map[error]uint),
@@ -100,27 +101,30 @@ func newRetrieerCore(opts ...Option) *retrierCore {
 		opt(core)
 	}
 
-	const maxBackOffN uint = 62
-	core.maxBackOffN = maxBackOffN
+	core.maxBackOffN = maxShiftsBeforeInt64Overflow(time.Nanosecond)
 	if core.delay < 0 {
 		core.delay = 0
 	} else if core.delay > 0 {
-		core.maxBackOffN = maxBackOffN - uint(math.Floor(math.Log2(float64(core.delay))))
+		core.maxBackOffN = maxShiftsBeforeInt64Overflow(core.delay)
 	}
 
 	return core
 }
 
+func maxShiftsBeforeInt64Overflow(d time.Duration) uint {
+	return uint(bits.Len64(math.MaxInt64)) - uint(bits.Len64(uint64(d)))
+}
+
 // New creates a new Retrier with the given options.
 // The returned Retrier can be safely reused across multiple retry operations.
 func New(opts ...Option) *Retrier {
-	return &Retrier{retrierCore: newRetrieerCore(opts...)}
+	return &Retrier{retrierCore: newRetrierCore(opts...)}
 }
 
 // NewWithData creates a new RetrierWithData[T] with the given options.
 // The returned retrier can be safely reused across multiple retry operations.
 func NewWithData[T any](opts ...Option) *RetrierWithData[T] {
-	return &RetrierWithData[T]{retrierCore: newRetrieerCore(opts...)}
+	return &RetrierWithData[T]{retrierCore: newRetrierCore(opts...)}
 }
 
 func emptyOption(r *retrierCore) {}

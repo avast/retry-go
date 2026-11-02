@@ -1,7 +1,7 @@
 /*
 Simple library for retry mechanism
 
-Slightly inspired by [Try::Tiny::Retry](https://metacpan.org/pod/Try::Tiny::Retry)
+Slightly inspired by [Try::Tiny::Retry]
 
 # SYNOPSIS
 
@@ -38,7 +38,7 @@ HTTP GET with retry with data:
 
 	url := "http://example.com"
 
-	body, err := retry.DoWithData(retry.New(),
+	body, err := retry.NewWithData[[]byte]().Do(
 		func() ([]byte, error) {
 			resp, err := http.Get(url)
 			if err != nil {
@@ -80,49 +80,68 @@ Reusable retrier for high-frequency retry operations:
 		}
 	}
 
-[More examples](https://github.com/avast/retry-go/tree/main/examples)
+[More examples]
 
 # SEE ALSO
 
-* [codeGROOVE-dev/retry](https://github.com/codeGROOVE-dev/retry) - Modern fork of avast/retry-go/v4 focused on correctness, reliability and efficiency. 100% API-compatible drop-in replacement. Looks really good.
+  - [codeGROOVE-dev/retry] - Modern fork of avast/retry-go/v4 focused on correctness, reliability and efficiency. 100% API-compatible drop-in replacement. Looks really good.
 
-* [giantswarm/retry-go](https://github.com/giantswarm/retry-go) - slightly complicated interface.
+  - [giantswarm/retry-go] - slightly complicated interface.
 
-* [sethgrid/pester](https://github.com/sethgrid/pester) - only http retry for http calls with retries and backoff
+  - [sethgrid/pester] - only http retry for http calls with retries and backoff
 
-* [cenkalti/backoff](https://github.com/cenkalti/backoff) - Go port of the exponential backoff algorithm from Google's HTTP Client Library for Java. Really complicated interface.
+  - [cenkalti/backoff] - Go port of the exponential backoff algorithm from Google's HTTP Client Library for Java. Really complicated interface.
 
-* [rafaeljesus/retry-go](https://github.com/rafaeljesus/retry-go) - looks good, slightly similar as this package, don't have 'simple' `Retry` method
+  - [rafaeljesus/retry-go] - looks good, slightly similar as this package, don't have 'simple' `Retry` method
 
-* [matryer/try](https://github.com/matryer/try) - very popular package, nonintuitive interface (for me)
+  - [matryer/try] - very popular package, nonintuitive interface (for me)
 
 # BREAKING CHANGES
 
-* 5.0.0
+5.0.0
+
   - Complete API redesign: method-based retry operations
   - Renamed `Config` type to `Retrier`
   - Renamed `NewConfig()` to `New()`
   - Changed from package-level functions to methods: `retry.Do(func, config)` → `retry.New(opts...).Do(func)`
+  - Replaced package-level `DoWithData` with typed retrier: `retry.DoWithData(func, opts...)` → `retry.NewWithData[T](opts...).Do(func)`
   - `DelayTypeFunc` signature changed: `func(n uint, err error, config *Config)` → `func(n uint, err error, r *Retrier)`
-  - Migration: `retry.Do(func, opts...)` → `retry.New(opts...).Do(func)` (simple find & replace)
+  - Migration for `Do`: `retry.Do(func, opts...)` → `retry.New(opts...).Do(func)` (simple find & replace)
+  - Migration for `DoWithData`: `retry.DoWithData(func, opts...)` → `retry.NewWithData[T](opts...).Do(func)` where `T` is your return type
   - This change improves performance, simplifies the API, and provides a cleaner interface
   - `Unwrap()` now returns `[]error` instead of `error` to support Go 1.20 multiple error wrapping.
   - `errors.Unwrap(err)` will now return `nil` (same as `errors.Join`). Use `errors.Is` or `errors.As` to inspect wrapped errors.
 
-* 4.0.0
-  - infinity retry is possible by set `Attempts(0)` by PR [#49](https://github.com/avast/retry-go/pull/49)
+4.0.0
 
-* 3.0.0
-  - `DelayTypeFunc` accepts a new parameter `err` - this breaking change affects only your custom Delay Functions. This change allow [make delay functions based on error](examples/delay_based_on_error_test.go).
+  - infinity retry is possible by set `Attempts(0)` by PR [#49]
 
-* 1.0.2 -> 2.0.0
+3.0.0
+
+  - `DelayTypeFunc` accepts a new parameter `err` - this breaking change affects only your custom Delay Functions. This change allow [make delay functions based on error].
+
+1.0.2 -> 2.0.0
+
   - argument of `retry.Delay` is final delay (no multiplication by `retry.Units` anymore)
   - function `retry.Units` are removed
-  - [more about this breaking change](https://github.com/avast/retry-go/issues/7)
+  - [more about this breaking change]
 
-* 0.3.0 -> 1.0.0
+0.3.0 -> 1.0.0
+
   - `retry.Retry` function are changed to `retry.Do` function
   - `retry.RetryCustom` (OnRetry) and `retry.RetryCustomWithOpts` functions are now implement via functions produces Options (aka `retry.OnRetry`)
+
+[Try::Tiny::Retry]: https://metacpan.org/pod/Try::Tiny::Retry
+[More examples]: https://github.com/avast/retry-go/tree/main/examples
+[codeGROOVE-dev/retry]: https://github.com/codeGROOVE-dev/retry
+[giantswarm/retry-go]: https://github.com/giantswarm/retry-go
+[sethgrid/pester]: https://github.com/sethgrid/pester
+[cenkalti/backoff]: https://github.com/cenkalti/backoff
+[rafaeljesus/retry-go]: https://github.com/rafaeljesus/retry-go
+[matryer/try]: https://github.com/matryer/try
+[#49]: https://github.com/avast/retry-go/pull/49
+[make delay functions based on error]: https://github.com/avast/retry-go/blob/main/examples/delay_based_on_error_test.go
+[more about this breaking change]: https://github.com/avast/retry-go/issues/7
 */
 package retry
 
@@ -170,6 +189,8 @@ func doWithData[T any](r *retrierCore, retryableFunc RetryableFuncWithData[T]) (
 		return emptyT, err
 	}
 
+	attemptsForErrorCopy := copyAttemptsForError(r.attemptsForError)
+
 	// Setting r.attempts to 0 means we'll retry until we succeed
 	var lastErr error
 	if r.attempts == 0 {
@@ -190,13 +211,18 @@ func doWithData[T any](r *retrierCore, retryableFunc RetryableFuncWithData[T]) (
 				return emptyT, err
 			}
 
-			if r.throttle != nil && !r.throttle.AllowRetry(n, err) {
+			if r.throttle != nil && r.willRetry(n, err, attemptsForErrorCopy) && !r.throttle.AllowRetry(n, err) {
 				return emptyT, err
 			}
 
 			lastErr = err
 
 			r.onRetry(n, err)
+
+			if exhaustedAttemptsForError(attemptsForErrorCopy, err) {
+				return emptyT, err
+			}
+
 			n++
 			select {
 			case <-r.timer.After(r.computeDelay(n, err)):
@@ -211,11 +237,6 @@ func doWithData[T any](r *retrierCore, retryableFunc RetryableFuncWithData[T]) (
 
 	errorLog := Error{}
 
-	attemptsForErrorCopy := make(map[error]uint, len(r.attemptsForError))
-	for err, attempts := range r.attemptsForError {
-		attemptsForErrorCopy[err] = attempts
-	}
-
 shouldRetry:
 	for {
 		t, err := retryableFunc()
@@ -226,7 +247,12 @@ shouldRetry:
 			return t, nil
 		}
 
-		errorLog = append(errorLog, unpackUnrecoverable(err))
+		unpackedErr := unpackUnrecoverable(err)
+		if r.lastErrorOnly {
+			lastErr = unpackedErr
+		} else {
+			errorLog = append(errorLog, unpackedErr)
+		}
 
 		if !r.retryIf(err) {
 			break
@@ -238,14 +264,8 @@ shouldRetry:
 
 		r.onRetry(n, err)
 
-		for errToCheck, attemptsForThisError := range attemptsForErrorCopy {
-			if errors.Is(err, errToCheck) {
-				attemptsForThisError--
-				attemptsForErrorCopy[errToCheck] = attemptsForThisError
-				if attemptsForThisError <= 0 {
-					break shouldRetry
-				}
-			}
+		if exhaustedAttemptsForError(attemptsForErrorCopy, err) {
+			break shouldRetry
 		}
 
 		// if this is last attempt - don't wait
@@ -265,7 +285,7 @@ shouldRetry:
 	}
 
 	if r.lastErrorOnly {
-		return emptyT, errorLog[len(errorLog)-1]
+		return emptyT, lastErr
 	}
 	return emptyT, errorLog
 }
@@ -277,11 +297,34 @@ func (r *retrierCore) willRetry(n uint, err error, attemptsForError map[error]ui
 		return false
 	}
 	for errToCheck, attempts := range attemptsForError {
-		if errors.Is(err, errToCheck) && attempts == 1 {
+		if errors.Is(err, errToCheck) && attempts <= 1 {
 			return false
 		}
 	}
 	return true
+}
+
+func copyAttemptsForError(attemptsForError map[error]uint) map[error]uint {
+	if len(attemptsForError) == 0 {
+		return nil
+	}
+	c := make(map[error]uint, len(attemptsForError))
+	for err, attempts := range attemptsForError {
+		c[err] = attempts
+	}
+	return c
+}
+
+func exhaustedAttemptsForError(attemptsForError map[error]uint, err error) bool {
+	for errToCheck, remaining := range attemptsForError {
+		if errors.Is(err, errToCheck) {
+			if remaining <= 1 {
+				return true
+			}
+			attemptsForError[errToCheck] = remaining - 1
+		}
+	}
+	return false
 }
 
 // Error type represents list of errors in retry
