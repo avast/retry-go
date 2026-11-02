@@ -172,6 +172,8 @@ func doWithData[T any](r *retrierCore, retryableFunc RetryableFuncWithData[T]) (
 		return emptyT, err
 	}
 
+	attemptsForErrorCopy := copyAttemptsForError(r.attemptsForError)
+
 	// Setting r.attempts to 0 means we'll retry until we succeed
 	var lastErr error
 	if r.attempts == 0 {
@@ -192,6 +194,11 @@ func doWithData[T any](r *retrierCore, retryableFunc RetryableFuncWithData[T]) (
 			lastErr = err
 
 			r.onRetry(n, err)
+
+			if exhaustedAttemptsForError(attemptsForErrorCopy, err) {
+				return emptyT, err
+			}
+
 			n++
 			select {
 			case <-r.timer.After(r.computeDelay(n, err)):
@@ -205,11 +212,6 @@ func doWithData[T any](r *retrierCore, retryableFunc RetryableFuncWithData[T]) (
 	}
 
 	errorLog := Error{}
-
-	attemptsForErrorCopy := make(map[error]uint, len(r.attemptsForError))
-	for err, attempts := range r.attemptsForError {
-		attemptsForErrorCopy[err] = attempts
-	}
 
 shouldRetry:
 	for {
@@ -226,14 +228,8 @@ shouldRetry:
 
 		r.onRetry(n, err)
 
-		for errToCheck, attemptsForThisError := range attemptsForErrorCopy {
-			if errors.Is(err, errToCheck) {
-				attemptsForThisError--
-				attemptsForErrorCopy[errToCheck] = attemptsForThisError
-				if attemptsForThisError <= 0 {
-					break shouldRetry
-				}
-			}
+		if exhaustedAttemptsForError(attemptsForErrorCopy, err) {
+			break shouldRetry
 		}
 
 		// if this is last attempt - don't wait
@@ -256,6 +252,29 @@ shouldRetry:
 		return emptyT, errorLog[len(errorLog)-1]
 	}
 	return emptyT, errorLog
+}
+
+func copyAttemptsForError(attemptsForError map[error]uint) map[error]uint {
+	if len(attemptsForError) == 0 {
+		return nil
+	}
+	c := make(map[error]uint, len(attemptsForError))
+	for err, attempts := range attemptsForError {
+		c[err] = attempts
+	}
+	return c
+}
+
+func exhaustedAttemptsForError(attemptsForError map[error]uint, err error) bool {
+	for errToCheck, remaining := range attemptsForError {
+		if errors.Is(err, errToCheck) {
+			if remaining <= 1 {
+				return true
+			}
+			attemptsForError[errToCheck] = remaining - 1
+		}
+	}
+	return false
 }
 
 // Error type represents list of errors in retry
