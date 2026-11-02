@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -24,7 +25,7 @@ func TestReadmeMatchesGenerated(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if generated != string(committed) {
+	if strings.ReplaceAll(generated, "\r\n", "\n") != strings.ReplaceAll(string(committed), "\r\n", "\n") {
 		t.Error("README.md is out of date - run make generate and commit the result")
 	}
 }

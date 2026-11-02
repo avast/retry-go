@@ -133,7 +133,7 @@ func packageSourceFiles(fset *token.FileSet, dir string) ([]*ast.File, error) {
 
 	files := make([]*ast.File, 0, len(names))
 	for _, name := range names {
-		file, err := parser.ParseFile(fset, filepath.Join(dir, name), nil, parser.ParseComments|parser.SkipObjectResolution)
+		file, err := parser.ParseFile(fset, filepath.Join(dir, name), nil, parser.ParseComments)
 		if err != nil {
 			return nil, err
 		}
