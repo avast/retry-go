@@ -50,15 +50,24 @@ type documentedPackage struct {
 }
 
 func main() {
-	fset := token.NewFileSet()
-	files, err := packageSourceFiles(fset, ".")
+	out, err := generate(".")
 	if err != nil {
 		log.Fatal(err)
+	}
+	fmt.Print(out)
+}
+
+// generate renders the README for the package in pkgDir.
+func generate(pkgDir string) (string, error) {
+	fset := token.NewFileSet()
+	files, err := packageSourceFiles(fset, pkgDir)
+	if err != nil {
+		return "", err
 	}
 
 	docPkg, err := doc.NewFromFiles(fset, files, importPath)
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 
 	pkg := documentedPackage{
@@ -100,9 +109,9 @@ func main() {
 	tmpl := template.Must(template.New("readme").Parse(readmeTemplate))
 	var out bytes.Buffer
 	if err := tmpl.Execute(&out, pkg); err != nil {
-		log.Fatal(err)
+		return "", err
 	}
-	fmt.Print(blankLines.ReplaceAllString(out.String(), "\n\n"))
+	return blankLines.ReplaceAllString(out.String(), "\n\n"), nil
 }
 
 // packageSourceFiles parses all non-test Go files of the package in dir,
@@ -140,9 +149,7 @@ func declaration(fset *token.FileSet, decl ast.Decl) string {
 	}
 
 	var buf bytes.Buffer
-	if err := printer.Fprint(&buf, fset, decl); err != nil {
-		log.Fatal(err)
-	}
+	_ = printer.Fprint(&buf, fset, decl)
 	return strings.ReplaceAll(buf.String(), "\t", "    ")
 }
 
