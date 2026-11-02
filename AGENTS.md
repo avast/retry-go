@@ -6,6 +6,7 @@
 - Exception: doc comments on exported identifiers are functional, not decorative — they are rendered into the public README (see Traps). Write and maintain them.
 - Prefer table-driven tests for option combinations and edge cases; colocate them with the code (`retry_test.go`).
 - Commits follow conventional style: concise, imperative, optional scope — `ci(workflow): skip codecov upload on dependabot PRs`.
+- Releases are deliberate batch events, not per-merge: merge freely and never bump `VERSION` or tag to "ship" a single merged PR — the maintainer decides when a batch is complete.
 
 ## Commands
 
@@ -13,6 +14,7 @@
 - `make test` — regenerates README, runs tests with coverage, runs linters. Run before every PR. **Requires Docker** — golangci-lint runs in a container.
 - `make test_and_cover_report TEST_PATTERN=YourTest` — narrow the suite to a single test.
 - `make generate` — regenerate `README.md` from source docs.
+- `make release` — tags `X.Y.Z` and `vX.Y.Z` from the `VERSION` file and pushes both. Bump `VERSION` first — the target refuses an already-released version. Release notes are manual (no CHANGELOG file); draft them from the commits since the last tag.
 
 ## Traps
 
