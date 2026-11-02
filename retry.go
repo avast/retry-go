@@ -176,7 +176,9 @@ func doWithData[T any](r *retrierCore, retryableFunc RetryableFuncWithData[T]) (
 		for {
 			t, err := retryableFunc()
 			if err == nil {
-				r.onSuccess(n)
+				if r.throttle != nil {
+					r.throttle.OnSuccess(n)
+				}
 				return t, nil
 			}
 
@@ -185,6 +187,10 @@ func doWithData[T any](r *retrierCore, retryableFunc RetryableFuncWithData[T]) (
 			}
 
 			if !r.retryIf(err) {
+				return emptyT, err
+			}
+
+			if r.throttle != nil && !r.throttle.AllowRetry(n, err) {
 				return emptyT, err
 			}
 
@@ -214,13 +220,19 @@ shouldRetry:
 	for {
 		t, err := retryableFunc()
 		if err == nil {
-			r.onSuccess(n)
+			if r.throttle != nil {
+				r.throttle.OnSuccess(n)
+			}
 			return t, nil
 		}
 
 		errorLog = append(errorLog, unpackUnrecoverable(err))
 
 		if !r.retryIf(err) {
+			break
+		}
+
+		if r.throttle != nil && r.willRetry(n, err, attemptsForErrorCopy) && !r.throttle.AllowRetry(n, err) {
 			break
 		}
 
@@ -256,6 +268,20 @@ shouldRetry:
 		return emptyT, errorLog[len(errorLog)-1]
 	}
 	return emptyT, errorLog
+}
+
+// willRetry reports whether a retry follows the failed attempt n,
+// mirroring the attempt limit checks below without consuming them.
+func (r *retrierCore) willRetry(n uint, err error, attemptsForError map[error]uint) bool {
+	if n == r.attempts-1 {
+		return false
+	}
+	for errToCheck, attempts := range attemptsForError {
+		if errors.Is(err, errToCheck) && attempts == 1 {
+			return false
+		}
+	}
+	return true
 }
 
 // Error type represents list of errors in retry

@@ -10,63 +10,63 @@ import (
 
 func TestCapacityPoolAcquireRelease(t *testing.T) {
 	t.Run("limited capacity", func(t *testing.T) {
-		p := NewCapacityPool(10)
+		p := newCapacityPool(10)
 
-		ok := p.Acquire(5)
+		ok := p.acquire(5)
 		assert.True(t, ok)
 		assert.Equal(t, int64(5), p.available)
 
-		ok = p.Acquire(6)
+		ok = p.acquire(6)
 		assert.False(t, ok)
 		assert.Equal(t, int64(5), p.available, "available should not change on failed acquire")
 
-		p.Release(5)
+		p.release(5)
 		assert.Equal(t, int64(10), p.available)
 
-		ok = p.Acquire(6)
+		ok = p.acquire(6)
 		assert.True(t, ok)
 		assert.Equal(t, int64(4), p.available)
 	})
 
 	t.Run("release is capped by maxCapacity", func(t *testing.T) {
-		p := NewCapacityPool(10)
-		p.Release(5)
+		p := newCapacityPool(10)
+		p.release(5)
 		assert.Equal(t, int64(10), p.available)
 	})
 
 	t.Run("zero cost is allowed", func(t *testing.T) {
-		p := NewCapacityPool(10)
-		assert.True(t, p.Acquire(0))
+		p := newCapacityPool(10)
+		assert.True(t, p.acquire(0))
 		assert.Equal(t, int64(10), p.available)
-		p.Release(0)
+		p.release(0)
 		assert.Equal(t, int64(10), p.available)
 	})
 
 	t.Run("unlimited capacity", func(t *testing.T) {
-		p := NewCapacityPool(-1)
+		p := newCapacityPool(-1)
 		assert.Equal(t, int64(-1), p.maxCapacity)
 
-		ok := p.Acquire(1_000_000)
+		ok := p.acquire(1_000_000)
 		assert.True(t, ok)
 		assert.Equal(t, int64(-1), p.available, "available should remain unchanged for unlimited capacity")
 
-		p.Release(1_000_000)
+		p.release(1_000_000)
 		assert.Equal(t, int64(-1), p.available, "release should be a no-op for unlimited capacity")
 	})
 }
 
 func TestCapacityPoolNegativeCostPanics(t *testing.T) {
-	p := NewCapacityPool(10)
+	p := newCapacityPool(10)
 
 	t.Run("acquire", func(t *testing.T) {
-		assert.PanicsWithValue(t, "cost must be positive, got -1", func() {
-			_ = p.Acquire(-1)
+		assert.PanicsWithValue(t, "cost must not be negative, got -1", func() {
+			_ = p.acquire(-1)
 		})
 	})
 
 	t.Run("release", func(t *testing.T) {
-		assert.PanicsWithValue(t, "cost must be positive, got -1", func() {
-			p.Release(-1)
+		assert.PanicsWithValue(t, "cost must not be negative, got -1", func() {
+			p.release(-1)
 		})
 	})
 }
@@ -74,7 +74,7 @@ func TestCapacityPoolNegativeCostPanics(t *testing.T) {
 func TestCapacityPoolConcurrency(t *testing.T) {
 	t.Run("limited capacity invariants hold", func(t *testing.T) {
 		const max int64 = 3
-		p := NewCapacityPool(max)
+		p := newCapacityPool(max)
 
 		const goroutines = 32
 		const iterations = 2_000
@@ -85,7 +85,7 @@ func TestCapacityPoolConcurrency(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				for i := 0; i < iterations; i++ {
-					if !p.Acquire(1) {
+					if !p.acquire(1) {
 						runtime.Gosched()
 						continue
 					}
@@ -96,7 +96,7 @@ func TestCapacityPoolConcurrency(t *testing.T) {
 					assert.GreaterOrEqual(t, avail, int64(0), "available should never be negative")
 					assert.LessOrEqual(t, avail, p.maxCapacity, "available should never exceed maxCapacity")
 
-					p.Release(1)
+					p.release(1)
 
 					p.mu.Lock()
 					avail = p.available
@@ -116,7 +116,7 @@ func TestCapacityPoolConcurrency(t *testing.T) {
 	})
 
 	t.Run("unlimited capacity stays unlimited", func(t *testing.T) {
-		p := NewCapacityPool(-1)
+		p := newCapacityPool(-1)
 
 		const goroutines = 32
 		const iterations = 2_000
@@ -127,8 +127,8 @@ func TestCapacityPoolConcurrency(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				for i := 0; i < iterations; i++ {
-					assert.True(t, p.Acquire(1))
-					p.Release(1)
+					assert.True(t, p.acquire(1))
+					p.release(1)
 				}
 			}()
 		}

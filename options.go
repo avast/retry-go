@@ -13,9 +13,6 @@ type RetryIfFunc func(error) bool
 // Function signature of OnRetry function
 type OnRetryFunc func(attempt uint, err error)
 
-// Function signature of OnSuccess function
-type OnSuccessFunc func(attempt uint)
-
 // DelayContext provides configuration values needed for delay calculation.
 type DelayContext interface {
 	Delay() time.Duration
@@ -42,12 +39,12 @@ type retrierCore struct {
 	maxJitter                     time.Duration
 	onRetry                       OnRetryFunc
 	retryIf                       RetryIfFunc
-	onSuccess                     OnSuccessFunc
 	delayType                     DelayTypeFunc
 	lastErrorOnly                 bool
 	context                       context.Context
 	timer                         Timer
 	wrapContextErrorWithLastError bool
+	throttle                      ThrottleManager
 
 	maxBackOffN uint // pre-computed for BackOffDelay, immutable after New()
 }
@@ -92,7 +89,6 @@ func newRetrieerCore(opts ...Option) *retrierCore {
 		delay:            100 * time.Millisecond,
 		maxJitter:        100 * time.Millisecond,
 		onRetry:          func(n uint, err error) {},
-		onSuccess:        func(n uint) {},
 		retryIf:          IsRecoverable,
 		delayType:        CombineDelay(BackOffDelay, RandomDelay),
 		lastErrorOnly:    false,
@@ -324,31 +320,6 @@ func RetryIf(retryIf RetryIfFunc) Option {
 	}
 }
 
-// CombineRetryIfFunc combines multiple RetryIfFunc into a single RetryIfFunc
-// The returned RetryIfFunc returns true if all of the given RetryIfFunc return true
-// otherwise it returns false
-func CombineRetryIfFunc(retryIfs ...RetryIfFunc) RetryIfFunc {
-	return func(err error) bool {
-		for _, retryIf := range retryIfs {
-			if !retryIf(err) {
-				return false
-			}
-		}
-		return true
-	}
-}
-
-// CombineOnSuccessFunc combines multiple OnSuccessFunc into a single OnSuccessFunc
-// The returned OnSuccessFunc calls each of the given OnSuccessFunc in order
-// and returns the result of the last OnSuccessFunc
-func CombineOnSuccessFunc(onSuccesses ...OnSuccessFunc) OnSuccessFunc {
-	return func(attempt uint) {
-		for _, onSuccess := range onSuccesses {
-			onSuccess(attempt)
-		}
-	}
-}
-
 // Context allow to set context of retry
 // default are Background context
 //
@@ -418,16 +389,23 @@ func WrapContextErrorWithLastError(wrapContextErrorWithLastError bool) Option {
 	}
 }
 
-func WithFixTokenBucketThrottle(config FixTokenBucketThrottleConfig) Option {
+// WithThrottle limits retries with the given ThrottleManager.
+// Before each retry that would actually happen, manager.AllowRetry is called;
+// if it returns false, retrying stops and the error is returned immediately.
+// manager.OnSuccess is called when the retryable function succeeds.
+// Option order does not matter; passing nil disables throttling.
+func WithThrottle(manager ThrottleManager) Option {
 	return func(r *retrierCore) {
-		manager := NewFixTokenBucketThrottle(config)
-		WithThrottle(manager)(r)
+		r.throttle = manager
 	}
 }
 
-func WithThrottle(manager ThrottleManager) Option {
+// WithFixedTokenBucketThrottle is a shortcut for
+// WithThrottle(NewFixedTokenBucketThrottle(config)).
+// Each Retrier gets its own token bucket, shared by all its Do calls.
+// It panics on an invalid config, see NewFixedTokenBucketThrottle.
+func WithFixedTokenBucketThrottle(config FixedTokenBucketThrottleConfig) Option {
 	return func(r *retrierCore) {
-		r.retryIf = CombineRetryIfFunc(r.retryIf, manager.RetryIf)
-		r.onSuccess = CombineOnSuccessFunc(r.onSuccess, manager.OnSuccess)
+		WithThrottle(NewFixedTokenBucketThrottle(config))(r)
 	}
 }

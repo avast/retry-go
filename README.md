@@ -327,6 +327,62 @@ implementation of the `errwrap.Wrapper` interface in package
 [errwrap](https://github.com/hashicorp/errwrap) so that `retry.Error` can be
 used with that library.
 
+#### type FixedTokenBucketThrottleConfig
+
+```go
+type FixedTokenBucketThrottleConfig struct {
+	// MaxCapacity is the bucket size: 0 means the default (100),
+	// a negative value means unlimited (never throttles).
+	MaxCapacity int64
+	// ThrottleCost is taken from the bucket for each retry (default 5).
+	ThrottleCost int64
+	// SuccessReleaseCost is returned to the bucket on a success after retries
+	// (default ThrottleCost).
+	SuccessReleaseCost int64
+	// FirstSuccessReleaseCost is returned to the bucket on a first-attempt
+	// success (default 1).
+	FirstSuccessReleaseCost int64
+}
+```
+
+FixedTokenBucketThrottleConfig configures a FixedTokenBucketThrottleManager.
+Zero values are replaced by defaults.
+
+#### type FixedTokenBucketThrottleManager
+
+```go
+type FixedTokenBucketThrottleManager struct {
+}
+```
+
+FixedTokenBucketThrottleManager is a ThrottleManager backed by a fixed-size
+token bucket: retries take tokens, successes return them (capped at
+MaxCapacity). Retries are denied while the bucket lacks ThrottleCost tokens.
+
+#### func  NewFixedTokenBucketThrottle
+
+```go
+func NewFixedTokenBucketThrottle(config FixedTokenBucketThrottleConfig) *FixedTokenBucketThrottleManager
+```
+NewFixedTokenBucketThrottle creates a FixedTokenBucketThrottleManager with a
+full bucket. It panics if ThrottleCost, SuccessReleaseCost or
+FirstSuccessReleaseCost is negative.
+
+#### func (*FixedTokenBucketThrottleManager) AllowRetry
+
+```go
+func (m *FixedTokenBucketThrottleManager) AllowRetry(_ uint, _ error) bool
+```
+AllowRetry takes ThrottleCost tokens, or returns false if not enough are left.
+
+#### func (*FixedTokenBucketThrottleManager) OnSuccess
+
+```go
+func (m *FixedTokenBucketThrottleManager) OnSuccess(attempt uint)
+```
+OnSuccess returns FirstSuccessReleaseCost tokens when attempt is 0,
+SuccessReleaseCost otherwise.
+
 #### type OnRetryFunc
 
 ```go
@@ -478,6 +534,27 @@ func UntilSucceeded() Option
 ```
 UntilSucceeded will retry until the retried function succeeds. Equivalent to
 setting Attempts(0).
+
+#### func  WithFixedTokenBucketThrottle
+
+```go
+func WithFixedTokenBucketThrottle(config FixedTokenBucketThrottleConfig) Option
+```
+WithFixedTokenBucketThrottle is a shortcut for
+WithThrottle(NewFixedTokenBucketThrottle(config)). Each Retrier gets its own
+token bucket, shared by all its Do calls. It panics on an invalid config, see
+NewFixedTokenBucketThrottle.
+
+#### func  WithThrottle
+
+```go
+func WithThrottle(manager ThrottleManager) Option
+```
+WithThrottle limits retries with the given ThrottleManager. Before each retry
+that would actually happen, manager.AllowRetry is called; if it returns false,
+retrying stops and the error is returned immediately. manager.OnSuccess is
+called when the retryable function succeeds. Option order does not matter;
+passing nil disables throttling.
 
 #### func  WithTimer
 
@@ -655,6 +732,21 @@ type RetryableFuncWithData[T any] func() (T, error)
 ```
 
 Function signature of retryable function with data
+
+#### type ThrottleManager
+
+```go
+type ThrottleManager interface {
+	// AllowRetry is called after attempt failed with err, only when a retry
+	// would otherwise follow. Returning false stops retrying immediately.
+	AllowRetry(attempt uint, err error) bool
+	// OnSuccess is called when attempt succeeded (0 is the first attempt).
+	OnSuccess(attempt uint)
+}
+```
+
+ThrottleManager limits retries across calls, see WithThrottle. Implementations
+must be safe for concurrent use.
 
 #### type Timer
 
