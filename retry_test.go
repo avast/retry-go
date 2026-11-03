@@ -981,6 +981,30 @@ func TestFullJitterBackoffDelay(t *testing.T) {
 	}
 }
 
+func TestFullJitterZeroDelayAfterManyAttempts(t *testing.T) {
+	for _, attempts := range []uint{0, 1100} {
+		for _, maxDelay := range []time.Duration{0, time.Second} {
+			t.Run(fmt.Sprintf("attempts=%d/maxDelay=%s", attempts, maxDelay), func(t *testing.T) {
+				calls := 0
+				err := New(
+					Attempts(attempts),
+					Delay(0),
+					MaxDelay(maxDelay),
+					DelayType(FullJitterBackoffDelay),
+				).Do(func() error {
+					calls++
+					if calls <= 1024 {
+						return errors.New("not ready")
+					}
+					return nil
+				})
+				assert.NoError(t, err)
+				assert.Equal(t, 1025, calls)
+			})
+		}
+	}
+}
+
 func TestLastErrorOnlyReturnsFinalErrorAfterManyAttempts(t *testing.T) {
 	const totalAttempts = 500
 	var count int

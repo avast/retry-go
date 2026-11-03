@@ -242,8 +242,13 @@ func CombineDelay(delays ...DelayTypeFunc) DelayTypeFunc {
 // Formula: sleep = random_between(0, min(cap, base * 2^attempt))
 // It uses config.Delay as the base delay and config.MaxDelay as the cap.
 func FullJitterBackoffDelay(n uint, err error, config DelayContext) time.Duration {
+	baseDelay := config.Delay()
+	if baseDelay <= 0 {
+		return 0
+	}
+
 	// Calculate the exponential backoff ceiling for the current attempt
-	backoffCeiling := float64(config.Delay()) * math.Pow(2, float64(n))
+	backoffCeiling := float64(baseDelay) * math.Pow(2, float64(n))
 	currentCap := float64(config.MaxDelay())
 
 	// If MaxDelay is set and backoffCeiling exceeds it, cap at MaxDelay
