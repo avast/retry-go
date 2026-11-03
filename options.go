@@ -256,17 +256,6 @@ func FullJitterBackoffDelay(n uint, err error, config DelayContext) time.Duratio
 		backoffCeiling = currentCap
 	}
 
-	// Ensure backoffCeiling is at least 0
-	if backoffCeiling < 0 {
-		backoffCeiling = 0
-	}
-
-	// Add jitter: random value between 0 and backoffCeiling
-	// rand.Int63n panics if argument is <= 0
-	if backoffCeiling <= 0 {
-		return 0 // No delay if ceiling is zero or negative
-	}
-
 	jitter := rand.Int63n(int64(backoffCeiling)) // #nosec G404 -- Using math/rand is acceptable for non-security critical jitter.
 	return time.Duration(jitter)
 }
