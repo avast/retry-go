@@ -981,6 +981,26 @@ func TestFullJitterBackoffDelay(t *testing.T) {
 	}
 }
 
+func TestFullJitterBackoffDelayDoesNotPanicWhenCeilingExceedsInt64(t *testing.T) {
+	tests := []struct {
+		name   string
+		config *Retrier
+	}{
+		{"no max delay", New(Delay(time.Second))},
+		{"max delay at int64 limit", New(Delay(time.Second), MaxDelay(time.Duration(math.MaxInt64)))},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, n := range []uint{0, 33, 34, 63, 64, 1023, 1024, 2000} {
+				assert.NotPanics(t, func() {
+					assert.GreaterOrEqual(t, FullJitterBackoffDelay(n, errors.New("test"), tt.config), time.Duration(0), "attempt %d", n)
+				}, "attempt %d", n)
+			}
+		})
+	}
+}
+
 func TestFullJitterZeroDelayAfterManyAttempts(t *testing.T) {
 	for _, attempts := range []uint{0, 1100} {
 		for _, maxDelay := range []time.Duration{0, time.Second} {
