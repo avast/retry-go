@@ -243,24 +243,18 @@ func CombineDelay(delays ...DelayTypeFunc) DelayTypeFunc {
 // Formula: sleep = random_between(0, min(cap, base * 2^attempt))
 // It uses config.Delay as the base delay and config.MaxDelay as the cap.
 func FullJitterBackoffDelay(n uint, err error, config DelayContext) time.Duration {
+	baseDelay := config.Delay()
+	if baseDelay <= 0 {
+		return 0
+	}
+
 	// Calculate the exponential backoff ceiling for the current attempt
-	backoffCeiling := float64(config.Delay()) * math.Pow(2, float64(n))
+	backoffCeiling := float64(baseDelay) * math.Pow(2, float64(n))
 	currentCap := float64(config.MaxDelay())
 
 	// If MaxDelay is set and backoffCeiling exceeds it, cap at MaxDelay
 	if currentCap > 0 && backoffCeiling > currentCap {
 		backoffCeiling = currentCap
-	}
-
-	// Ensure backoffCeiling is at least 0
-	if backoffCeiling < 0 {
-		backoffCeiling = 0
-	}
-
-	// Add jitter: random value between 0 and backoffCeiling
-	// rand.Int63n panics if argument is <= 0
-	if backoffCeiling <= 0 {
-		return 0 // No delay if ceiling is zero or negative
 	}
 
 	jitter := rand.Int63n(int64(backoffCeiling)) // #nosec G404 -- Using math/rand is acceptable for non-security critical jitter.
