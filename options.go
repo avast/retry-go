@@ -257,8 +257,15 @@ func FullJitterBackoffDelay(n uint, err error, config DelayContext) time.Duratio
 		backoffCeiling = currentCap
 	}
 
-	jitter := rand.Int63n(int64(backoffCeiling)) // #nosec G404 -- Using math/rand is acceptable for non-security critical jitter.
+	jitter := rand.Int63n(saturatingInt64(backoffCeiling)) // #nosec G404 -- Using math/rand is acceptable for non-security critical jitter.
 	return time.Duration(jitter)
+}
+
+func saturatingInt64(positive float64) int64 {
+	if positive >= float64(math.MaxInt64) {
+		return math.MaxInt64
+	}
+	return int64(positive)
 }
 
 // OnRetry function callback are called each retry
