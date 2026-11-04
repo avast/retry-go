@@ -1,11 +1,7 @@
 package retry
 
-import (
-	"fmt"
-	"sync"
-)
+import "sync"
 
-// capacityPool is a thread-safe token pool. A negative maxCapacity means unlimited.
 type capacityPool struct {
 	available   int64
 	maxCapacity int64
@@ -19,15 +15,15 @@ func newCapacityPool(maxCapacity int64) *capacityPool {
 	}
 }
 
-func (p *capacityPool) acquire(cost int64) bool {
-	if cost < 0 {
-		panic(fmt.Sprintf("cost must not be negative, got %d", cost))
-	}
+func (p *capacityPool) unlimited() bool {
+	return p.maxCapacity < 0
+}
 
+func (p *capacityPool) acquire(cost int64) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if p.maxCapacity < 0 {
+	if p.unlimited() {
 		return true
 	}
 
@@ -40,19 +36,17 @@ func (p *capacityPool) acquire(cost int64) bool {
 }
 
 func (p *capacityPool) release(cost int64) {
-	if cost < 0 {
-		panic(fmt.Sprintf("cost must not be negative, got %d", cost))
-	}
-
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if p.maxCapacity < 0 {
+	if p.unlimited() {
+		return
+	}
+
+	if cost >= p.maxCapacity-p.available {
+		p.available = p.maxCapacity
 		return
 	}
 
 	p.available += cost
-	if p.available > p.maxCapacity {
-		p.available = p.maxCapacity
-	}
 }

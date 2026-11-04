@@ -338,7 +338,7 @@ type FixedTokenBucketThrottleConfig struct {
 }
 ```
 
-FixedTokenBucketThrottleConfig configures a FixedTokenBucketThrottleManager. Zero values are replaced by defaults.
+FixedTokenBucketThrottleConfig configures a FixedTokenBucketThrottleManager. Zero and negative costs are replaced by defaults.
 
 ### type FixedTokenBucketThrottleManager
 
@@ -356,7 +356,7 @@ FixedTokenBucketThrottleManager is a ThrottleManager backed by a fixed-size toke
 func NewFixedTokenBucketThrottle(config FixedTokenBucketThrottleConfig) *FixedTokenBucketThrottleManager
 ```
 
-NewFixedTokenBucketThrottle creates a FixedTokenBucketThrottleManager with a full bucket. It panics if ThrottleCost, SuccessReleaseCost or FirstSuccessReleaseCost is negative.
+NewFixedTokenBucketThrottle creates a FixedTokenBucketThrottleManager with a full bucket.
 
 ### func (*FixedTokenBucketThrottleManager) AllowRetry
 
@@ -541,7 +541,7 @@ UntilSucceeded will retry until the retried function succeeds. Equivalent to set
 func WithFixedTokenBucketThrottle(config FixedTokenBucketThrottleConfig) Option
 ```
 
-WithFixedTokenBucketThrottle is a shortcut for WithThrottle(NewFixedTokenBucketThrottle(config)). Each Retrier gets its own token bucket, shared by all its Do calls. It panics on an invalid config, see NewFixedTokenBucketThrottle.
+WithFixedTokenBucketThrottle is a shortcut for WithThrottle(NewFixedTokenBucketThrottle(config)). Every New call builds a fresh bucket shared by that Retrier's Do calls, so reusing this Option for several Retriers does not share a bucket. To share one, create it with NewFixedTokenBucketThrottle and pass it to WithThrottle.
 
 ### func WithThrottle
 
@@ -549,7 +549,7 @@ WithFixedTokenBucketThrottle is a shortcut for WithThrottle(NewFixedTokenBucketT
 func WithThrottle(manager ThrottleManager) Option
 ```
 
-WithThrottle limits retries with the given ThrottleManager. Before each retry that would actually happen, manager.AllowRetry is called; if it returns false, retrying stops and the error is returned immediately. manager.OnSuccess is called when the retryable function succeeds. Option order does not matter; passing nil disables throttling.
+WithThrottle limits retries with the given ThrottleManager. Before each retry that would actually happen, manager.AllowRetry is called; if it returns false, retrying stops immediately with an error matching ErrThrottled. manager.OnSuccess is called when the retryable function succeeds. Option order does not matter; passing nil disables throttling.
 
 ### func WithTimer
 
@@ -746,7 +746,10 @@ Function signature of retryable function with data
 ```go
 type ThrottleManager interface {
     // AllowRetry is called after attempt failed with err, only when a retry
-    // would otherwise follow. Returning false stops retrying immediately.
+    // would otherwise follow, and before the delay. Returning false stops
+    // retrying immediately with an error matching ErrThrottled.
+    // If the context is cancelled during the delay, no retry happens even
+    // though AllowRetry returned true.
     AllowRetry(attempt uint, err error) bool
     // OnSuccess is called when attempt succeeded (0 is the first attempt).
     OnSuccess(attempt uint)

@@ -212,16 +212,17 @@ func doWithData[T any](r *retrierCore, retryableFunc RetryableFuncWithData[T]) (
 			}
 
 			if r.throttle != nil && r.willRetry(n, err, attemptsForErrorCopy) && !r.throttle.AllowRetry(n, err) {
-				return emptyT, err
+				return emptyT, errors.Join(err, ErrThrottled)
 			}
 
 			lastErr = err
 
 			r.onRetry(n, err)
 
-			if exhaustedAttemptsForError(attemptsForErrorCopy, err) {
+			if attemptsForErrorExhausted(attemptsForErrorCopy, err) {
 				return emptyT, err
 			}
+			consumeAttemptsForError(attemptsForErrorCopy, err)
 
 			n++
 			select {
@@ -259,17 +260,21 @@ shouldRetry:
 		}
 
 		if r.throttle != nil && r.willRetry(n, err, attemptsForErrorCopy) && !r.throttle.AllowRetry(n, err) {
-			break
+			if r.lastErrorOnly {
+				return emptyT, errors.Join(lastErr, ErrThrottled)
+			}
+			return emptyT, append(errorLog, ErrThrottled)
 		}
 
 		r.onRetry(n, err)
 
-		if exhaustedAttemptsForError(attemptsForErrorCopy, err) {
+		if attemptsForErrorExhausted(attemptsForErrorCopy, err) {
 			break shouldRetry
 		}
+		consumeAttemptsForError(attemptsForErrorCopy, err)
 
 		// if this is last attempt - don't wait
-		if n == r.attempts-1 {
+		if r.isLastAttempt(n) {
 			break shouldRetry
 		}
 		n++
@@ -290,18 +295,12 @@ shouldRetry:
 	return emptyT, errorLog
 }
 
-// willRetry reports whether a retry follows the failed attempt n,
-// mirroring the attempt limit checks below without consuming them.
 func (r *retrierCore) willRetry(n uint, err error, attemptsForError map[error]uint) bool {
-	if n == r.attempts-1 {
-		return false
-	}
-	for errToCheck, attempts := range attemptsForError {
-		if errors.Is(err, errToCheck) && attempts <= 1 {
-			return false
-		}
-	}
-	return true
+	return !r.isLastAttempt(n) && !attemptsForErrorExhausted(attemptsForError, err)
+}
+
+func (r *retrierCore) isLastAttempt(n uint) bool {
+	return r.attempts != 0 && n == r.attempts-1
 }
 
 func copyAttemptsForError(attemptsForError map[error]uint) map[error]uint {
@@ -315,16 +314,21 @@ func copyAttemptsForError(attemptsForError map[error]uint) map[error]uint {
 	return c
 }
 
-func exhaustedAttemptsForError(attemptsForError map[error]uint, err error) bool {
+func attemptsForErrorExhausted(attemptsForError map[error]uint, err error) bool {
 	for errToCheck, remaining := range attemptsForError {
-		if errors.Is(err, errToCheck) {
-			if remaining <= 1 {
-				return true
-			}
-			attemptsForError[errToCheck] = remaining - 1
+		if remaining <= 1 && errors.Is(err, errToCheck) {
+			return true
 		}
 	}
 	return false
+}
+
+func consumeAttemptsForError(attemptsForError map[error]uint, err error) {
+	for errToCheck, remaining := range attemptsForError {
+		if errors.Is(err, errToCheck) {
+			attemptsForError[errToCheck] = remaining - 1
+		}
+	}
 }
 
 // Error type represents list of errors in retry

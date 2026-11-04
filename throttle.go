@@ -1,6 +1,6 @@
 package retry
 
-import "fmt"
+import "errors"
 
 const (
 	defaultMaxCapacity             = 100
@@ -8,18 +8,25 @@ const (
 	defaultFirstSuccessReleaseCost = 1
 )
 
+// ErrThrottled is part of the error returned when a ThrottleManager denies
+// a retry, alongside the attempt errors. Check it with errors.Is.
+var ErrThrottled = errors.New("retry throttled")
+
 // ThrottleManager limits retries across calls, see WithThrottle.
 // Implementations must be safe for concurrent use.
 type ThrottleManager interface {
 	// AllowRetry is called after attempt failed with err, only when a retry
-	// would otherwise follow. Returning false stops retrying immediately.
+	// would otherwise follow, and before the delay. Returning false stops
+	// retrying immediately with an error matching ErrThrottled.
+	// If the context is cancelled during the delay, no retry happens even
+	// though AllowRetry returned true.
 	AllowRetry(attempt uint, err error) bool
 	// OnSuccess is called when attempt succeeded (0 is the first attempt).
 	OnSuccess(attempt uint)
 }
 
 // FixedTokenBucketThrottleConfig configures a FixedTokenBucketThrottleManager.
-// Zero values are replaced by defaults.
+// Zero and negative costs are replaced by defaults.
 type FixedTokenBucketThrottleConfig struct {
 	// MaxCapacity is the bucket size: 0 means the default (100),
 	// a negative value means unlimited (never throttles).
@@ -44,35 +51,24 @@ type FixedTokenBucketThrottleManager struct {
 }
 
 // NewFixedTokenBucketThrottle creates a FixedTokenBucketThrottleManager with
-// a full bucket. It panics if ThrottleCost, SuccessReleaseCost or
-// FirstSuccessReleaseCost is negative.
+// a full bucket.
 func NewFixedTokenBucketThrottle(config FixedTokenBucketThrottleConfig) *FixedTokenBucketThrottleManager {
-	mustNotBeNegative("ThrottleCost", config.ThrottleCost)
-	mustNotBeNegative("SuccessReleaseCost", config.SuccessReleaseCost)
-	mustNotBeNegative("FirstSuccessReleaseCost", config.FirstSuccessReleaseCost)
-
 	if config.MaxCapacity == 0 {
 		config.MaxCapacity = defaultMaxCapacity
 	}
-	if config.ThrottleCost == 0 {
+	if config.ThrottleCost <= 0 {
 		config.ThrottleCost = defaultThrottleCost
 	}
-	if config.SuccessReleaseCost == 0 {
+	if config.SuccessReleaseCost <= 0 {
 		config.SuccessReleaseCost = config.ThrottleCost
 	}
-	if config.FirstSuccessReleaseCost == 0 {
+	if config.FirstSuccessReleaseCost <= 0 {
 		config.FirstSuccessReleaseCost = defaultFirstSuccessReleaseCost
 	}
 
 	return &FixedTokenBucketThrottleManager{
 		pool:   newCapacityPool(config.MaxCapacity),
 		config: config,
-	}
-}
-
-func mustNotBeNegative(name string, v int64) {
-	if v < 0 {
-		panic(fmt.Sprintf("%s must not be negative, got %d", name, v))
 	}
 }
 

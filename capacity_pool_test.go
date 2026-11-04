@@ -1,6 +1,7 @@
 package retry
 
 import (
+	"math"
 	"runtime"
 	"sync"
 	"testing"
@@ -55,20 +56,24 @@ func TestCapacityPoolAcquireRelease(t *testing.T) {
 	})
 }
 
-func TestCapacityPoolNegativeCostPanics(t *testing.T) {
-	p := newCapacityPool(10)
-
-	t.Run("acquire", func(t *testing.T) {
-		assert.PanicsWithValue(t, "cost must not be negative, got -1", func() {
-			_ = p.acquire(-1)
+func TestCapacityPoolReleaseDoesNotOverflow(t *testing.T) {
+	for _, c := range []struct {
+		name     string
+		acquire  int64
+		release  int64
+		expected int64
+	}{
+		{"release far above headroom", 1, math.MaxInt64, math.MaxInt64},
+		{"release exactly the headroom", 10, 10, math.MaxInt64},
+		{"release below the headroom", 10, 9, math.MaxInt64 - 1},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			p := newCapacityPool(math.MaxInt64)
+			assert.True(t, p.acquire(c.acquire))
+			p.release(c.release)
+			assert.Equal(t, c.expected, p.available)
 		})
-	})
-
-	t.Run("release", func(t *testing.T) {
-		assert.PanicsWithValue(t, "cost must not be negative, got -1", func() {
-			p.release(-1)
-		})
-	})
+	}
 }
 
 func TestCapacityPoolConcurrency(t *testing.T) {

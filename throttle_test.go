@@ -42,21 +42,22 @@ func TestNewFixedTokenBucketThrottleValidationAndDefaults(t *testing.T) {
 		assert.Equal(t, cfg, m.config)
 	})
 
-	for _, c := range []struct {
-		name   string
-		config FixedTokenBucketThrottleConfig
-		panic  string
-	}{
-		{"ThrottleCost", FixedTokenBucketThrottleConfig{ThrottleCost: -1}, "ThrottleCost must not be negative, got -1"},
-		{"SuccessReleaseCost", FixedTokenBucketThrottleConfig{SuccessReleaseCost: -1}, "SuccessReleaseCost must not be negative, got -1"},
-		{"FirstSuccessReleaseCost", FixedTokenBucketThrottleConfig{FirstSuccessReleaseCost: -1}, "FirstSuccessReleaseCost must not be negative, got -1"},
-	} {
-		t.Run("panics on negative "+c.name, func(t *testing.T) {
-			assert.PanicsWithValue(t, c.panic, func() {
-				_ = NewFixedTokenBucketThrottle(c.config)
-			})
+	t.Run("negative costs get defaults", func(t *testing.T) {
+		m := NewFixedTokenBucketThrottle(FixedTokenBucketThrottleConfig{
+			MaxCapacity:             10,
+			ThrottleCost:            -1,
+			SuccessReleaseCost:      -1,
+			FirstSuccessReleaseCost: -1,
 		})
-	}
+		assert.Equal(t, int64(defaultThrottleCost), m.config.ThrottleCost)
+		assert.Equal(t, int64(defaultThrottleCost), m.config.SuccessReleaseCost)
+		assert.Equal(t, int64(defaultFirstSuccessReleaseCost), m.config.FirstSuccessReleaseCost)
+	})
+
+	t.Run("negative MaxCapacity stays unlimited", func(t *testing.T) {
+		m := NewFixedTokenBucketThrottle(FixedTokenBucketThrottleConfig{MaxCapacity: -5})
+		assert.True(t, m.pool.unlimited())
+	})
 }
 
 func TestFixedTokenBucketThrottleManagerBehavior(t *testing.T) {
@@ -212,12 +213,43 @@ func TestWithThrottleOption(t *testing.T) {
 		assert.Equal(t, []uint{0}, retried)
 	})
 
-	t.Run("infinite attempts are throttled", func(t *testing.T) {
-		m := newManager()
-		calls := 0
-		err := newRetrier(m, Attempts(0)).Do(alwaysFail(&calls))
-		assert.ErrorIs(t, err, errBoom)
-		assert.Equal(t, 2, calls)
+	t.Run("throttled stop is detectable", func(t *testing.T) {
+		for _, c := range []struct {
+			name string
+			opts []Option
+		}{
+			{"finite", nil},
+			{"finite with LastErrorOnly", []Option{LastErrorOnly(true)}},
+			{"infinite", []Option{Attempts(0)}},
+		} {
+			t.Run(c.name, func(t *testing.T) {
+				calls := 0
+				err := newRetrier(newManager(), c.opts...).Do(alwaysFail(&calls))
+				assert.ErrorIs(t, err, ErrThrottled)
+				assert.ErrorIs(t, err, errBoom)
+				assert.Equal(t, 2, calls)
+			})
+		}
+	})
+
+	t.Run("exhausted attempts are not reported as throttled", func(t *testing.T) {
+		for _, c := range []struct {
+			name string
+			opts []Option
+		}{
+			{"Attempts", []Option{Attempts(2)}},
+			{"Attempts with LastErrorOnly", []Option{Attempts(2), LastErrorOnly(true)}},
+			{"AttemptsForError", []Option{AttemptsForError(2, errBoom)}},
+			{"infinite with AttemptsForError", []Option{Attempts(0), AttemptsForError(2, errBoom)}},
+		} {
+			t.Run(c.name, func(t *testing.T) {
+				calls := 0
+				err := newRetrier(newManager(), c.opts...).Do(alwaysFail(&calls))
+				assert.ErrorIs(t, err, errBoom)
+				assert.NotErrorIs(t, err, ErrThrottled)
+				assert.Equal(t, 2, calls)
+			})
+		}
 	})
 
 	t.Run("infinite attempts with AttemptsForError limit do not consume capacity", func(t *testing.T) {
@@ -294,9 +326,4 @@ func TestWithFixedTokenBucketThrottleOption(t *testing.T) {
 		assert.Equal(t, 2, calls)
 	})
 
-	t.Run("panics on invalid config", func(t *testing.T) {
-		assert.Panics(t, func() {
-			New(WithFixedTokenBucketThrottle(FixedTokenBucketThrottleConfig{ThrottleCost: -1}))
-		})
-	})
 }
