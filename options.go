@@ -257,7 +257,7 @@ func FullJitterBackoffDelay(n uint, err error, config DelayContext) time.Duratio
 		backoffCeiling = currentCap
 	}
 
-	jitter := rand.Int63n(saturatingInt64(backoffCeiling)) // #nosec G404 -- Using math/rand is acceptable for non-security critical jitter.
+	jitter := rand.Int63n(saturatingInt64(backoffCeiling))
 	return time.Duration(jitter)
 }
 
