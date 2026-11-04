@@ -45,6 +45,7 @@ type retrierCore struct {
 	context                       context.Context
 	timer                         Timer
 	wrapContextErrorWithLastError bool
+	throttle                      ThrottleManager
 
 	maxBackOffN uint // pre-computed for BackOffDelay, immutable after New()
 }
@@ -389,5 +390,29 @@ func WithTimer(t Timer) Option {
 func WrapContextErrorWithLastError(wrapContextErrorWithLastError bool) Option {
 	return func(r *retrierCore) {
 		r.wrapContextErrorWithLastError = wrapContextErrorWithLastError
+	}
+}
+
+// WithThrottle limits retries with the given ThrottleManager.
+// Before each retry that would actually happen, manager.AllowRetry is called;
+// if it returns false, retrying stops immediately with an error matching
+// ErrThrottled.
+// manager.OnSuccess is called when the retryable function succeeds.
+// Option order does not matter; passing nil disables throttling.
+func WithThrottle(manager ThrottleManager) Option {
+	return func(r *retrierCore) {
+		r.throttle = manager
+	}
+}
+
+// WithFixedTokenBucketThrottle is a shortcut for
+// WithThrottle(NewFixedTokenBucketThrottle(config)).
+// Every New call builds a fresh bucket shared by that Retrier's Do calls,
+// so reusing this Option for several Retriers does not share a bucket.
+// To share one, create it with NewFixedTokenBucketThrottle and pass it to
+// WithThrottle.
+func WithFixedTokenBucketThrottle(config FixedTokenBucketThrottleConfig) Option {
+	return func(r *retrierCore) {
+		WithThrottle(NewFixedTokenBucketThrottle(config))(r)
 	}
 }
