@@ -352,9 +352,9 @@ func Context(ctx context.Context) Option {
 //
 // example of augmenting time.After with a print statement
 //
-//	type struct MyTimer {}
+//	type MyTimer struct{}
 //
-//	func (t *MyTimer) After(d time.Duration) <- chan time.Time {
+//	func (t *MyTimer) After(d time.Duration) <-chan time.Time {
 //	    fmt.Print("Timer called!")
 //	    return time.After(d)
 //	}

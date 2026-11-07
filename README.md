@@ -562,9 +562,9 @@ WithTimer provides a way to swap out timer module implementations. This primaril
 example of augmenting time.After with a print statement
 
 ```go
-type struct MyTimer {}
+type MyTimer struct{}
 
-func (t *MyTimer) After(d time.Duration) <- chan time.Time {
+func (t *MyTimer) After(d time.Duration) <-chan time.Time {
     fmt.Print("Timer called!")
     return time.After(d)
 }
