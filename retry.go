@@ -228,6 +228,8 @@ func doWithData[T any](r *retrierCore, retryableFunc RetryableFuncWithData[T]) (
 			select {
 			case <-r.timer.After(r.computeDelay(n, err)):
 			case <-r.context.Done():
+			}
+			if r.context.Err() != nil {
 				if r.wrapContextErrorWithLastError {
 					return emptyT, Error{context.Cause(r.context), lastErr}
 				}
@@ -281,6 +283,8 @@ shouldRetry:
 		select {
 		case <-r.timer.After(r.computeDelay(n, err)):
 		case <-r.context.Done():
+		}
+		if r.context.Err() != nil {
 			if r.lastErrorOnly {
 				return emptyT, context.Cause(r.context)
 			}

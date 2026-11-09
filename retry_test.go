@@ -737,6 +737,39 @@ func TestContext(t *testing.T) {
 		assert.ErrorIs(t, err, context.DeadlineExceeded)
 		assert.ErrorIs(t, err, fooErr{str: "error 2"})
 	})
+
+	for _, attempts := range []uint{0, 10} {
+		t.Run(fmt.Sprintf("cancelled while delay elapsed - attempts %d", attempts), func(t *testing.T) {
+			for i := 0; i < 100; i++ {
+				ctx, cancel := context.WithCancel(context.Background())
+
+				calls := 0
+				err := New(
+					Context(ctx),
+					Attempts(attempts),
+					WithTimer(elapsedTimer{}),
+				).Do(
+					func() error {
+						calls++
+						cancel()
+						return errors.New("test")
+					},
+				)
+				assert.ErrorIs(t, err, context.Canceled)
+				if !assert.Equal(t, 1, calls, "no attempt after the context is cancelled") {
+					return
+				}
+			}
+		})
+	}
+}
+
+type elapsedTimer struct{}
+
+func (elapsedTimer) After(time.Duration) <-chan time.Time {
+	c := make(chan time.Time, 1)
+	c <- time.Now()
+	return c
 }
 
 type testTimer struct {
