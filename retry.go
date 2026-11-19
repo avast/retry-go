@@ -248,11 +248,11 @@ shouldRetry:
 			return t, nil
 		}
 
-		unpackedErr := unpackUnrecoverable(err)
+		recordedErr := r.errorForCaller(err)
 		if r.lastErrorOnly {
-			lastErr = unpackedErr
+			lastErr = recordedErr
 		} else {
-			errorLog = append(errorLog, unpackedErr)
+			errorLog = append(errorLog, recordedErr)
 		}
 
 		if !r.retryIf(err) {
@@ -465,6 +465,13 @@ func IsRecoverable(err error) bool {
 func (unrecoverableError) Is(err error) bool {
 	_, isUnrecoverable := err.(unrecoverableError)
 	return isUnrecoverable
+}
+
+func (r *retrierCore) errorForCaller(err error) error {
+	if r.preserveUnrecoverable {
+		return err
+	}
+	return unpackUnrecoverable(err)
 }
 
 func unpackUnrecoverable(err error) error {

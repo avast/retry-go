@@ -42,6 +42,7 @@ type retrierCore struct {
 	retryIf                       RetryIfFunc
 	delayType                     DelayTypeFunc
 	lastErrorOnly                 bool
+	preserveUnrecoverable         bool
 	context                       context.Context
 	timer                         Timer
 	wrapContextErrorWithLastError bool
@@ -134,6 +135,16 @@ func emptyOption(r *retrierCore) {}
 func LastErrorOnly(lastErrorOnly bool) Option {
 	return func(r *retrierCore) {
 		r.lastErrorOnly = lastErrorOnly
+	}
+}
+
+// PreserveUnrecoverable keeps the retry.Unrecoverable wrapper in the error returned after a finite number of attempts.
+// The default strips that wrapper, so callers receive the inner error and retry.IsRecoverable reports true.
+// Attempts(0) already returns the wrapper and does not consult this option.
+// The default is false.
+func PreserveUnrecoverable(preserve bool) Option {
+	return func(r *retrierCore) {
+		r.preserveUnrecoverable = preserve
 	}
 }
 
