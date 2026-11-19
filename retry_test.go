@@ -378,6 +378,51 @@ func TestUnrecoverableError(t *testing.T) {
 	assert.Equal(t, 1, attempts, "unrecoverable error broke the loop")
 }
 
+func TestPreserveUnrecoverable(t *testing.T) {
+	inner := errors.New("inner")
+	tests := []struct {
+		name            string
+		opts            []Option
+		want            error
+		wantRecoverable bool
+	}{
+		{
+			name:            "default strips wrapper",
+			want:            Error{inner},
+			wantRecoverable: true,
+		},
+		{
+			name:            "last error only strips wrapper",
+			opts:            []Option{LastErrorOnly(true)},
+			want:            inner,
+			wantRecoverable: true,
+		},
+		{
+			name: "option keeps wrapper",
+			opts: []Option{PreserveUnrecoverable(true)},
+			want: Error{Unrecoverable(inner)},
+		},
+		{
+			name: "option keeps wrapper with last error only",
+			opts: []Option{LastErrorOnly(true), PreserveUnrecoverable(true)},
+			want: Unrecoverable(inner),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			attempts := 0
+			err := New(append(tt.opts, Attempts(2), Delay(time.Nanosecond))...).Do(func() error {
+				attempts++
+				return Unrecoverable(inner)
+			})
+			assert.Equal(t, 1, attempts)
+			assert.Equal(t, tt.want, err)
+			assert.ErrorIs(t, err, inner)
+			assert.Equal(t, tt.wantRecoverable, IsRecoverable(err))
+		})
+	}
+}
+
 func TestCombineFixedDelays(t *testing.T) {
 	if os.Getenv("OS") == "macos-latest" {
 		t.Skip("Skipping testing in MacOS GitHub actions - too slow, duration is wrong")
